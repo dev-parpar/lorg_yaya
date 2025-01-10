@@ -1,0 +1,34 @@
+-- Add User Info
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "user_user23456"}, "sort_key": {"S": "info"}, "first_name": {"S": "Dee"}, "last_name": {"S": "Hoicks"}, "email": {"S": "dee.hoicks@gmail.com"}}'
+
+
+-- Add House
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "user_user12345"}, "sort_key": {"S": "house_1"}, "house_name": {"S": "EagleView"}, "house_address": {"S": "ohio"}}'
+
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "user_user12345"}, "sort_key": {"S": "house_2"}, "house_name": {"S": "LasColinas"}, "house_address": {"S": "Texas"}}'
+
+
+-- Add Item
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "house_1"}, "sort_key": {"S": "item_1"}, "item_name": {"S": "oil dispenser"}, "item_type": {"S": "edible"}, "item_qty": {"S": "1"}, "start_date": {"S": "01-05-2025"}, "added_by": {"S":"user_user12345"}}'
+
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "house_1"}, "sort_key": {"S": "item_2"}, "item_name": {"S": "Banana"}, "item_type": {"S": "edible"}, "item_qty": {"S": "12"}, "start_date": {"S": "01-05-2025"}, "added_by": {"S":"user_user23456"}}'
+
+aws dynamodb put-item \
+    --table-name item_data_tracker  \
+    --item \
+        '{"primary_key": {"S": "house_2"}, "sort_key": {"S": "item_3"}, "item_name": {"S": "gas"}, "item_type": {"S": "fuel"}, "item_qty": {"S": "14"}, "start_date": {"S": "01-01-2025"}, "added_by": {"S":"user_user12345"}}'
