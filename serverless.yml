@@ -2,7 +2,63 @@ AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: An app that includes a DynamoDB table, a Lambda function that writes to DynamoDB, and a scheduled EventBridge event
 
-Resources:           
+Parameters:
+  ApplicationName:
+    Type: String
+    Default: lorgyaya
+    Description: Application name
+
+Resources:
+  CognitoUserPool:
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      UserPoolName: !Sub '${ApplicationName}-users'
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+      UsernameAttributes:
+        - email
+        # add attribute for phone number later
+      UsernameConfiguration:
+        CaseSensitive: false
+      Schema:
+        - AttributeDataType: String
+          Name: email
+          Required: true
+        # add schema attribute for a phone numnber as well so that we dont allow users to use multiple emails
+  
+  # Cognito User Pool App Client
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref CognitoUserPool
+      ClientName: !Sub "${ApplicationName}-userpool-client"
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      CallbackURLs:
+        - urn:ietf:wg:oauth:2.0:oob
+      LogoutURLs:
+        - urn:ietf:wg:oauth:2.0:oob
+      AllowedOAuthScopes:
+        - email
+        - openid
+        - profile
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows:
+        - code
+        - implicit
+
+
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
