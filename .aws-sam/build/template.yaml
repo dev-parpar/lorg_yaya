@@ -7,6 +7,16 @@ Parameters:
     Type: String
     Default: lorgyaya
     Description: Application name
+Globals:
+  Api:
+    Auth:
+      DefaultAuthorizer: CognitoAuthorizer
+      Authorizers:
+        CognitoAuthorizer:
+          UserPoolArn:
+            Fn::GetAtt:
+            - CognitoUserPool
+            - Arn
 Resources:
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
@@ -29,6 +39,15 @@ Resources:
       Schema:
       - AttributeDataType: String
         Name: email
+        Required: true
+        Mutable: true
+      - Name: given_name
+        AttributeDataType: String
+        Mutable: true
+        Required: true
+      - Name: family_name
+        AttributeDataType: String
+        Mutable: true
         Required: true
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -55,6 +74,12 @@ Resources:
       AllowedOAuthFlows:
       - code
       - implicit
+  CognitoUserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId:
+        Ref: CognitoUserPool
+      Domain: lorgyaya-auth-domain
   DynamoDBTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
@@ -74,3 +99,96 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 0
         WriteCapacityUnits: 0
+  SignUpFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: auth/signup.handler
+      Runtime: nodejs18.x
+      CodeUri: SignUpFunction
+      Environment:
+        Variables:
+          USER_POOL_ID:
+            Ref: CognitoUserPool
+          COGNITO_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+      Events:
+        SignUpAPI:
+          Type: Api
+          Properties:
+            Path: /auth/signup
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - cognito-idp:SignUp
+          Resource:
+            Fn::GetAtt:
+            - CognitoUserPool
+            - Arn
+    Metadata:
+      SamResourceId: SignUpFunction
+  SignInFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: auth/signin.handler
+      Runtime: nodejs18.x
+      CodeUri: SignInFunction
+      Environment:
+        Variables:
+          USER_POOL_ID:
+            Ref: CognitoUserPool
+          COGNITO_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+      Events:
+        SignUpAPI:
+          Type: Api
+          Properties:
+            Path: /auth/signin
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - cognito-idp:InitiateAuth
+          Resource:
+            Fn::GetAtt:
+            - CognitoUserPool
+            - Arn
+    Metadata:
+      SamResourceId: SignInFunction
+Outputs:
+  SignUpAPI:
+    Description: API Gateway endpoint for signing up users
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/auth/signup
+    Export:
+      Name: SignUpAPI
+  SignInAPI:
+    Description: API Gateway endpoint for signing in users
+    Value:
+      Fn::Sub: https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/auth/signin
+    Export:
+      Name: SignInAPI
+  CognitoUserPool:
+    Description: Cognito User Pool ID
+    Value:
+      Ref: CognitoUserPool
+    Export:
+      Name: CognitoUserPool
+  CognitoUserPoolClient:
+    Description: Cognito User Pool Client ID
+    Value:
+      Ref: CognitoUserPoolClient
+    Export:
+      Name: CognitoUserPoolClient
+  CognitoUserPoolDomain:
+    Description: Cognito User Pool Domain
+    Value:
+      Fn::Sub: https://lorgyaya-auth-domain.auth.${AWS::Region}.amazoncognito.com
+    Export:
+      Name: CognitoUserPoolDomain
