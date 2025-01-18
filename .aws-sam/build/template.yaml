@@ -9,6 +9,9 @@ Parameters:
     Description: Application name
 Globals:
   Api:
+    OpenApiVersion: 3.0.3
+    EndpointConfiguration: REGIONAL
+    AlwaysDeploy: true
     Auth:
       DefaultAuthorizer: CognitoAuthorizer
       Authorizers:
@@ -60,6 +63,7 @@ Resources:
       ExplicitAuthFlows:
       - ALLOW_USER_SRP_AUTH
       - ALLOW_REFRESH_TOKEN_AUTH
+      - ALLOW_USER_PASSWORD_AUTH
       SupportedIdentityProviders:
       - COGNITO
       CallbackURLs:
@@ -74,6 +78,10 @@ Resources:
       AllowedOAuthFlows:
       - code
       - implicit
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
     Properties:
@@ -143,7 +151,7 @@ Resources:
           COGNITO_CLIENT_ID:
             Ref: CognitoUserPoolClient
       Events:
-        SignUpAPI:
+        SignInAPI:
           Type: Api
           Properties:
             Path: /auth/signin
@@ -161,6 +169,37 @@ Resources:
             - Arn
     Metadata:
       SamResourceId: SignInFunction
+  VerifyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: auth/verify.handler
+      Runtime: nodejs18.x
+      CodeUri: VerifyFunction
+      Environment:
+        Variables:
+          USER_POOL_ID:
+            Ref: CognitoUserPool
+          COGNITO_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+      Events:
+        VerifyAPI:
+          Type: Api
+          Properties:
+            Path: /auth/verify
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - cognito-idp:ConfirmSignUp
+          Resource:
+            Fn::GetAtt:
+            - CognitoUserPool
+            - Arn
+    Metadata:
+      SamResourceId: VerifyFunction
 Outputs:
   SignUpAPI:
     Description: API Gateway endpoint for signing up users

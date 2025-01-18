@@ -1,0 +1,20 @@
+{
+  "name": "lorg_yaya",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Item consumption tracker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.731.1"
+  }
+}
+
+
+
+
