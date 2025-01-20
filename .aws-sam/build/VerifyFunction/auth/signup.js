@@ -1,8 +1,6 @@
 //const AWS = require('aws-sdk');
 import { CognitoIdentityProviderClient, SignUpCommand } from "@aws-sdk/client-cognito-identity-provider";
 
-//const cognito = new AWS.CognitoIdentityServiceProvider();
-
 const client = new CognitoIdentityProviderClient({
   region: process.env.REGION
 });
