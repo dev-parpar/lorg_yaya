@@ -40,9 +40,11 @@ const getUserAttributes = async (email) => {
 };
 
 const sendEventToEventBridge = async (email, UserAttributes) => {
+    console.log('Event bus name:', process.env.EVENT_BUS_NAME);
     const params = {
         Entries: [
             {
+                EventBusName: process.env.EVENT_BUS_NAME,
                 Source: 'custom.auth',
                 DetailType: 'ProfileCreation',
                 Detail: JSON.stringify({
@@ -54,14 +56,15 @@ const sendEventToEventBridge = async (email, UserAttributes) => {
                         profileCreatedAt: new Date().toISOString()
                     }
                 }),
-                EventBusName: process.env.EVENT_BUS_NAME
+                
             }
         ]
     };
-
+    console.log('Event params: ', JSON.stringify(params,null, 2));
     try
     {
-        await _eventBridgeClient.send(new PutEventsCommand(params));
+        const rr = await _eventBridgeClient.send(new PutEventsCommand(params));
+        console.log('EventBridge response: ', JSON.stringify(rr, null, 2));
     }
     catch (error)
     {

@@ -36,8 +36,9 @@ const createItem = (eventName, data) => {
 const saveItemToDb = async (item) => {
     try
     {
+        console.log('DynamoDb tablename: ', process.env.DYNAMODB_TABLE_NAME);
         await _docClient.send(new PutCommand({
-            TableName: process.env.DYNAMODB_TABLE,
+            TableName: process.env.DYNAMODB_TABLE_NAME,
             Item: item
 
         }));
@@ -51,6 +52,7 @@ const saveItemToDb = async (item) => {
 };
 
 export const handler = async (event) => {
+    console.log('userDataToDb Event', event);
     try
     {
         const { eventName, data } = event.detail;

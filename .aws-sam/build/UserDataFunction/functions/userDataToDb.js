@@ -51,6 +51,7 @@ const saveItemToDb = async (item) => {
 };
 
 export const handler = async (event) => {
+    console.log('userDataToDb Event', event);
     try
     {
         const { eventName, data } = event.detail;

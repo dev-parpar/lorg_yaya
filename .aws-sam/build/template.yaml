@@ -186,6 +186,8 @@ Resources:
             Ref: CognitoUserPool
           COGNITO_CLIENT_ID:
             Ref: CognitoUserPoolClient
+          EVENT_BUS_NAME:
+            Ref: EventBus
       Events:
         VerifyAPI:
           Type: Api
@@ -244,23 +246,39 @@ Resources:
             Fn::GetAtt:
             - CognitoUserPool
             - Arn
+        - Effect: Allow
+          Action:
+          - events:ReceiveEvent
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
       - DynamoDBCrudPolicy:
           TableName:
             Ref: DynamoDBTable
     Metadata:
       SamResourceId: UserDataFunction
-  CognitoEventRule:
+  EventBridgeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/events/${ApplicationName}-events
+      RetentionInDays: 14
+  CustomAuthEventRule:
     Type: AWS::Events::Rule
     Properties:
-      Description: Capture profile information to dynamodb
+      Description: Rule to capture custom auth events and trigger the userDataToDb
+        function
+      EventBusName:
+        Ref: EventBus
       EventPattern:
         source:
-        - aws.cognito-idp
+        - custom.auth
         detail-type:
-        - Cognito User Pool confirmation
+        - ProfileCreation
         detail:
-          userPoolId:
-          - Ref: CognitoUserPool
+          eventName:
+          - USER_PROFILE_CREATE
       State: ENABLED
       Targets:
       - Arn:
@@ -268,7 +286,12 @@ Resources:
           - UserDataFunction
           - Arn
         Id: UserDataFunctionTarget
-  UserDataFunctionEventPermission:
+      - Arn:
+          Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+        Id: EventLogTarget
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+  UserDataFunctionEventPermission2:
     Type: AWS::Lambda::Permission
     Properties:
       Action: lambda:InvokeFunction
@@ -279,8 +302,47 @@ Resources:
       Principal: events.amazonaws.com
       SourceArn:
         Fn::GetAtt:
-        - CognitoEventRule
+        - CustomAuthEventRule
         - Arn
+  EventBridgeCLoudWatchLogsPolicy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: EventBridgeCloudWatchLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+          - Effect: Allow
+            Action:
+            - events:PutEvents
+            Resource:
+              Fn::GetAtt:
+              - EventBus
+              - Arn
+  EventBridgeLogGroupPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: EventBridgeToCloudWatchLogs
+      PolicyDocument:
+        Fn::Sub: "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n \
+          \     \"Sid\": \"EventBridgeToCloudWatchLogs\",\n      \"Effect\": \"Allow\"\
+          ,\n      \"Principal\": {\n        \"Service\": \"events.amazonaws.com\"\
+          \n      },\n      \"Action\": [\n        \"logs:CreateLogStream\",\n   \
+          \     \"logs:PutLogEvents\"\n      ],\n      \"Resource\": \"arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*\"\
+          \n    }\n  ]\n}\n"
 Outputs:
   SignUpAPI:
     Description: API Gateway endpoint for signing up users
