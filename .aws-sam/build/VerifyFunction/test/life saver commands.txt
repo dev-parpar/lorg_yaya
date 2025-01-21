@@ -1,0 +1,3 @@
+
+-- Create deployment for an API
+aws apigateway create-deployment --rest-api-id <API Gateway ID> --stage-name dev --stage-description 'Dev stage' --description 'second deployment'

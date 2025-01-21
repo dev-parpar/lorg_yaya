@@ -22,6 +22,11 @@ Globals:
           UserPoolArn: !GetAtt CognitoUserPool.Arn
 
 Resources:
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub '${ApplicationName}-event-bus'
+
   CognitoUserPool:
     Type: "AWS::Cognito::UserPool"
     Properties:
@@ -57,7 +62,7 @@ Resources:
           Mutable: true
           Required: true
         # add schema attribute for a phone numnber as well so that we dont allow users to use multiple emails
-  
+
   # Cognito User Pool App Client
   CognitoUserPoolClient:
     Type: AWS::Cognito::UserPoolClient
@@ -184,7 +189,7 @@ Resources:
         Variables:
           USER_POOL_ID: !Ref CognitoUserPool
           COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
-          AWS_REGION: !Ref AWS::Region
+          EVENT_BUS_NAME: !Ref EventBus
       Events:
         VerifyAPI:
           Type: Api
@@ -198,11 +203,165 @@ Resources:
           - Effect: Allow
             Action:
               - cognito-idp:ConfirmSignUp
+              - cognito-idp:AdminGetUser
+              - events:PutEvents
             Resource: !GetAtt CognitoUserPool.Arn
+          - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+
+  # userData function
+  UserDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/userDataToDb.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
       Environment:
         Variables:
           USER_POOL_ID: !Ref CognitoUserPool
           COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
+      Events:
+        UserDataAPI:
+          Type: Api
+          Properties:
+            Path: /data/user_data
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - cognito-idp:AdminGetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+          - Effect: Allow
+            Action:
+              - events:ReceiveEvent
+            Resource: !GetAtt EventBus.Arn  
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+
+  # Log Groups:
+  EventBridgeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/events/${ApplicationName}-events
+      RetentionInDays: 14
+  
+  
+  #TODO: Figure out how to log cloud watch events
+
+  #Event Bridge Rules
+  # CognitoEventRule:
+  #   Type: AWS::Events::Rule
+  #   Properties:
+  #     Description: Capture profile information to dynamodb
+  #     EventPattern:
+  #       source:
+  #         - aws.cognito-idp
+  #       detail-type:
+  #         - Cognito User Pool confirmation
+  #       detail:
+  #         userPoolId:
+  #           - !Ref CognitoUserPool
+  #     State: ENABLED
+  #     Targets:
+  #       - Arn: !GetAtt UserDataFunction.Arn
+  #         Id: UserDataFunctionTarget
+
+  CustomAuthEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule to capture custom auth events and trigger the userDataToDb function
+      EventBusName: !Ref EventBus
+      EventPattern:
+        source:
+          - custom.auth
+        detail-type:
+          - ProfileCreation
+        detail:
+          eventName:
+            - USER_PROFILE_CREATE
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt UserDataFunction.Arn
+          Id: UserDataFunctionTarget
+        - Arn: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+          Id: EventLogTarget
+          RetryPolicy:
+            MaximumRetryAttempts: 3
+
+  UserDataFunctionEventPermission2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt UserDataFunction.Arn
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CustomAuthEventRule.Arn
+
+  # # No longer needed
+  # #TODO: delete this somehow
+  # UserDataFunctionEventPermission:
+  #   Type: AWS::Lambda::Permission
+  #   Properties:
+  #     Action: lambda:InvokeFunction
+  #     FunctionName: !GetAtt UserDataFunction.Arn
+  #     Principal: events.amazonaws.com
+  #     SourceArn: !GetAtt CognitoEventRule.Arn
+
+
+  #Policies
+  EventBridgeCLoudWatchLogsPolicy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EventBridgeCloudWatchLogsPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !GetAtt EventBus.Arn
+
+  # Add resource policy for CloudWatch Logs
+  EventBridgeLogGroupPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: EventBridgeToCloudWatchLogs
+      PolicyDocument: !Sub |
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "EventBridgeToCloudWatchLogs",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "events.amazonaws.com"
+              },
+              "Action": [
+                "logs:CreateLogStream",
+                "logs:PutLogEvents"
+              ],
+              "Resource": "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*"
+            }
+          ]
+        }
+
 Outputs:
   SignUpAPI:
     Description: API Gateway endpoint for signing up users

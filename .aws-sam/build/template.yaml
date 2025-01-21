@@ -21,6 +21,11 @@ Globals:
             - CognitoUserPool
             - Arn
 Resources:
+  EventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name:
+        Fn::Sub: ${ApplicationName}-event-bus
   CognitoUserPool:
     Type: AWS::Cognito::UserPool
     Properties:
@@ -79,8 +84,8 @@ Resources:
       - code
       - implicit
       PreventUserExistenceErrors: ENABLED
-      AccessTokenValidity: 60
-      IdTokenValidity: 60
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
       RefreshTokenValidity: 30
   CognitoUserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
@@ -181,6 +186,8 @@ Resources:
             Ref: CognitoUserPool
           COGNITO_CLIENT_ID:
             Ref: CognitoUserPoolClient
+          EVENT_BUS_NAME:
+            Ref: EventBus
       Events:
         VerifyAPI:
           Type: Api
@@ -194,12 +201,148 @@ Resources:
         - Effect: Allow
           Action:
           - cognito-idp:ConfirmSignUp
+          - cognito-idp:AdminGetUser
+          - events:PutEvents
           Resource:
             Fn::GetAtt:
             - CognitoUserPool
             - Arn
+        - Effect: Allow
+          Action: events:PutEvents
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
     Metadata:
       SamResourceId: VerifyFunction
+  UserDataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/userDataToDb.handler
+      Runtime: nodejs18.x
+      CodeUri: UserDataFunction
+      Environment:
+        Variables:
+          USER_POOL_ID:
+            Ref: CognitoUserPool
+          COGNITO_CLIENT_ID:
+            Ref: CognitoUserPoolClient
+          DYNAMODB_TABLE_NAME:
+            Ref: DynamoDBTable
+      Events:
+        UserDataAPI:
+          Type: Api
+          Properties:
+            Path: /data/user_data
+            Method: POST
+            Auth:
+              Authorizer: NONE
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - cognito-idp:AdminGetUser
+          Resource:
+            Fn::GetAtt:
+            - CognitoUserPool
+            - Arn
+        - Effect: Allow
+          Action:
+          - events:ReceiveEvent
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: DynamoDBTable
+    Metadata:
+      SamResourceId: UserDataFunction
+  EventBridgeLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/events/${ApplicationName}-events
+      RetentionInDays: 14
+  CustomAuthEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Rule to capture custom auth events and trigger the userDataToDb
+        function
+      EventBusName:
+        Ref: EventBus
+      EventPattern:
+        source:
+        - custom.auth
+        detail-type:
+        - ProfileCreation
+        detail:
+          eventName:
+          - USER_PROFILE_CREATE
+      State: ENABLED
+      Targets:
+      - Arn:
+          Fn::GetAtt:
+          - UserDataFunction
+          - Arn
+        Id: UserDataFunctionTarget
+      - Arn:
+          Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+        Id: EventLogTarget
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+  UserDataFunctionEventPermission2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+        - UserDataFunction
+        - Arn
+      Principal: events.amazonaws.com
+      SourceArn:
+        Fn::GetAtt:
+        - CustomAuthEventRule
+        - Arn
+  EventBridgeCLoudWatchLogsPolicy:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: EventBridgeCloudWatchLogsPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource:
+              Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*
+          - Effect: Allow
+            Action:
+            - events:PutEvents
+            Resource:
+              Fn::GetAtt:
+              - EventBus
+              - Arn
+  EventBridgeLogGroupPolicy:
+    Type: AWS::Logs::ResourcePolicy
+    Properties:
+      PolicyName: EventBridgeToCloudWatchLogs
+      PolicyDocument:
+        Fn::Sub: "{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": [\n    {\n \
+          \     \"Sid\": \"EventBridgeToCloudWatchLogs\",\n      \"Effect\": \"Allow\"\
+          ,\n      \"Principal\": {\n        \"Service\": \"events.amazonaws.com\"\
+          \n      },\n      \"Action\": [\n        \"logs:CreateLogStream\",\n   \
+          \     \"logs:PutLogEvents\"\n      ],\n      \"Resource\": \"arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/events/${ApplicationName}-events:*\"\
+          \n    }\n  ]\n}\n"
 Outputs:
   SignUpAPI:
     Description: API Gateway endpoint for signing up users

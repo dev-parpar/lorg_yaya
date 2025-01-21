@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "auth/signup.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["SignUpFunction", "SignInFunction", "VerifyFunction"]
+functions = ["SignUpFunction", "SignInFunction", "VerifyFunction", "UserDataFunction"]
 
 [layer_build_definitions]
