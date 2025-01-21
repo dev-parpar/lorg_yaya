@@ -11,8 +11,8 @@ const generateKeys = (eventName, data) => {
         case 'USER_PROFILE_CREATE':
         case 'USER_PROFILE_UPDATE':
             return {
-                primary_key: `USER#${data.sub}`,
-                sort_key: `PROFILE#${data.sub}`
+                primary_key: `USER#${data.pkID}`,
+                sort_key: `PROFILE#${data.stID}`
             };
         default:
             return {};
@@ -56,6 +56,17 @@ export const handler = async (event) => {
     try
     {
         const { eventName, data } = event.detail;
+    
+        if(!data.pkID || !data.stID)
+        {
+            console.log('No pkID or stID found. Not storing the data in the db');   
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'pkID or stID was requried but was not found.',
+                })
+            };
+        }
 
         // Create Item with all attributes
         const item = createItem(eventName, data);

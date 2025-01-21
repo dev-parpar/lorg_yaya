@@ -242,11 +242,6 @@ Resources:
             Resource: !GetAtt EventBus.Arn  
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
-      # Environment:
-      #   Variables:
-      #     USER_POOL_ID: !Ref CognitoUserPool
-      #     COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
-      #     DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
 
   # Log Groups:
   EventBridgeLogGroup:
