@@ -11,9 +11,14 @@ const generateKeys = (eventName, data) => {
         case 'USER_PROFILE_CREATE':
         case 'USER_PROFILE_UPDATE':
             return {
-                primary_key: `USER#${data.sub}`,
-                sort_key: `PROFILE#${data.sub}`
+                primary_key: `USER#${data.pkID}`,
+                sort_key: `PROFILE#${data.stID}`
             };
+        case 'HOUSE_ADD_UPDATE':
+            return {
+                primary_key: '${data.pkID}',
+                sort_key: '${data.stID}'
+            }
         default:
             return {};
     }
@@ -27,7 +32,6 @@ const createItem = (eventName, data) => {
         ...keys,
         ...data,
         _metadata: {
-            createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         }
     };
@@ -36,8 +40,9 @@ const createItem = (eventName, data) => {
 const saveItemToDb = async (item) => {
     try
     {
+        console.log('DynamoDb tablename: ', process.env.DYNAMODB_TABLE_NAME);
         await _docClient.send(new PutCommand({
-            TableName: process.env.DYNAMODB_TABLE,
+            TableName: process.env.DYNAMODB_TABLE_NAME,
             Item: item
 
         }));
@@ -55,6 +60,17 @@ export const handler = async (event) => {
     try
     {
         const { eventName, data } = event.detail;
+    
+        if(!data.pkID || !data.stID)
+        {
+            console.log('No pkID or stID found. Not storing the data in the db');   
+            return {
+                statusCode: 500,
+                body: JSON.stringify({
+                    message: 'pkID or stID was requried but was not found.',
+                })
+            };
+        }
 
         // Create Item with all attributes
         const item = createItem(eventName, data);

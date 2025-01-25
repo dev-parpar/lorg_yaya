@@ -215,6 +215,38 @@ Resources:
             - Arn
     Metadata:
       SamResourceId: VerifyFunction
+  AddHouseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/addHouse.handler
+      Runtime: nodejs18.x
+      CodeUri: AddHouseFunction
+      Environment:
+        Variables:
+          EVENT_BUS_NAME:
+            Ref: EventBus
+      Events:
+        AddHouseAPI:
+          Type: Api
+          Properties:
+            Path: /data/house/add
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+              - email
+              - profile
+      Policies:
+      - Statement:
+        - Effect: Allow
+          Action:
+          - events:PutEvents
+          Resource:
+            Fn::GetAtt:
+            - EventBus
+            - Arn
+    Metadata:
+      SamResourceId: AddHouseFunction
   UserDataFunction:
     Type: AWS::Serverless::Function
     Properties:
