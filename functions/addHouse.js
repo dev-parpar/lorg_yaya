@@ -23,6 +23,9 @@ const validateRequiredFields = async (requestBody) => {
 };
 
 export const handler = async (event) => {
+    console.log('Event: ', JSON.stringify(event, null, 2));
+    console.log('Headers:', JSON.stringify(event.headers, null, 2));
+    console.log('Auth Context:', JSON.stringify(event.requestContext.authorizer, null, 2));
     
     try
     {

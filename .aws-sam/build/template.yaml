@@ -225,6 +225,8 @@ Resources:
         Variables:
           EVENT_BUS_NAME:
             Ref: EventBus
+          AWS_REGION:
+            Ref: AWS::Region
       Events:
         AddHouseAPI:
           Type: Api
