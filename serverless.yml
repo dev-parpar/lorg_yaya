@@ -21,6 +21,7 @@ Globals:
         CognitoAuthorizer:
           UserPoolArn: !GetAtt CognitoUserPool.Arn
 
+
 Resources:
   EventBus:
     Type: AWS::Events::EventBus
@@ -118,6 +119,38 @@ Resources:
         ReadCapacityUnits: 0
         WriteCapacityUnits: 0
 
+  # APIT Gateway
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ServerlessRestApi.Deployment
+      RestApiId: !Ref ServerlessRestApi
+      StageName: test
+      MethodSettings:
+        - LoggingLevel: INFO
+          ResourcePath: '/*'
+          HttpMethod: '*'
+          MetricsEnabled: true
+          DataTraceEnabled: true
+
   # Setup Lambda Handlers
   SignUpFunction:
     Type: AWS::Serverless::Function
@@ -210,6 +243,38 @@ Resources:
             Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
 
+  AddHouseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/addHouse.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        AddHouseAPI:
+          Type: Api
+          Properties:
+            Path: /data/house/add  
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+              type: COGNITO_USER_POOLS
+              AuthorizationScopes:
+                - email
+                - profile
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+
   # userData function
   UserDataFunction:
     Type: AWS::Serverless::Function
@@ -270,6 +335,10 @@ Resources:
   #     Targets:
   #       - Arn: !GetAtt UserDataFunction.Arn
   #         Id: UserDataFunctionTarget
+
+
+  # Authorizers
+
 
   CustomAuthEventRule:
     Type: AWS::Events::Rule
@@ -393,3 +462,4 @@ Outputs:
     Value: !Sub "https://lorgyaya-auth-domain.auth.${AWS::Region}.amazoncognito.com"
     Export:
       Name: CognitoUserPoolDomain
+  

@@ -210,6 +210,35 @@ Resources:
             Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
 
+  AddHouseFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/addHouse.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+          AWS_REGION: !Ref AWS::Region
+      Events:
+        AddHouseAPI:
+          Type: Api
+          Properties:
+            Path: /data/house/add  
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+              AuthorizationScopes:
+                - email
+                - profile
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+        
+
   # userData function
   UserDataFunction:
     Type: AWS::Serverless::Function
@@ -222,7 +251,6 @@ Resources:
           USER_POOL_ID: !Ref CognitoUserPool
           COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
           DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
-          #AWS_REGION: !Ref AWS::Region
       Events:
         UserDataAPI:
           Type: Api
@@ -243,11 +271,6 @@ Resources:
             Resource: !GetAtt EventBus.Arn  
         - DynamoDBCrudPolicy:
             TableName: !Ref DynamoDBTable
-      # Environment:
-      #   Variables:
-      #     USER_POOL_ID: !Ref CognitoUserPool
-      #     COGNITO_CLIENT_ID: !Ref CognitoUserPoolClient
-      #     DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
 
   # Log Groups:
   EventBridgeLogGroup:

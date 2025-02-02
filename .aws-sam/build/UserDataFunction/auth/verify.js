@@ -39,6 +39,7 @@ const getUserAttributes = async (email) => {
     }
 };
 
+// TODO: Create a class that helps ease out the process of creating event formats
 const sendEventToEventBridge = async (email, UserAttributes) => {
     console.log('Event bus name:', process.env.EVENT_BUS_NAME);
     const params = {
@@ -50,6 +51,8 @@ const sendEventToEventBridge = async (email, UserAttributes) => {
                 Detail: JSON.stringify({
                     eventName: 'USER_PROFILE_CREATE',
                     data: {
+                        pkID: UserAttributes.sub,
+                        stID: UserAttributes.sub,
                         email: email,
                         firstName: UserAttributes.given_name,
                         lastName: UserAttributes.family_name,
