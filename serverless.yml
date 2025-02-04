@@ -243,6 +243,19 @@ Resources:
             Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
 
+  # Test api gateway
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Cors: "'*'"
+      Auth:
+        DefaultAuthorizer: MyCognitoAuthorizer
+        Authorizers:
+          MyCognitoAuthorizer:
+            UserPoolArn:
+              Fn::GetAtt: [CognitoUserPool, Arn]
+
   AddHouseFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -253,17 +266,26 @@ Resources:
         Variables:
           EVENT_BUS_NAME: !Ref EventBus
       Events:
-        AddHouseAPI:
+        MyApiEvent:
           Type: Api
           Properties:
-            Path: /data/house/add  
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/house/add
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
-              type: COGNITO_USER_POOLS
-              AuthorizationScopes:
-                - email
-                - profile
+              Authorizer: MyCognitoAuthorizer
+      # Events:
+      #   AddHouseAPI:
+      #     Type: Api
+      #     Properties:
+      #       Path: /data/house/add  
+      #       Method: POST
+      #       Auth:
+      #         Authorizer: CognitoAuthorizer
+      #         type: COGNITO_USER_POOLS
+      #         AuthorizationScopes:
+      #           - email
+      #           - profile
       Policies:
         - Statement:
           - Effect: Allow
