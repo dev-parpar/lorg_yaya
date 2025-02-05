@@ -15,9 +15,10 @@ const generateKeys = (eventName, data) => {
                 sort_key: `PROFILE#${data.stID}`
             };
         case 'HOUSE_ADD_UPDATE':
+            console.log('house add update event')
             return {
-                primary_key: '${data.pkID}',
-                sort_key: '${data.stID}'
+                primary_key: `${data.pkID}`,
+                sort_key: `${data.stID}`
             }
         default:
             return {};

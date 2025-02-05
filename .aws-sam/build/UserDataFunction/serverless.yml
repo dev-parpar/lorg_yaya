@@ -21,11 +21,15 @@ Globals:
         CognitoAuthorizer:
           UserPoolArn: !GetAtt CognitoUserPool.Arn
 
+
 Resources:
   EventBus:
     Type: AWS::Events::EventBus
     Properties:
       Name: !Sub '${ApplicationName}-event-bus'
+      LoggingOptions:
+        Enabled: true
+        LogGroupArn: !GetAtt EvenyBusLogging.Arn
 
   CognitoUserPool:
     Type: "AWS::Cognito::UserPool"
@@ -117,6 +121,38 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 0
         WriteCapacityUnits: 0
+
+  # APIT Gateway
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchRole.Arn
+
+  ApiGatewayCloudWatchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId: !Ref ServerlessRestApi.Deployment
+      RestApiId: !Ref ServerlessRestApi
+      StageName: test
+      MethodSettings:
+        - LoggingLevel: INFO
+          ResourcePath: '/*'
+          HttpMethod: '*'
+          MetricsEnabled: true
+          DataTraceEnabled: true
 
   # Setup Lambda Handlers
   SignUpFunction:
@@ -210,6 +246,19 @@ Resources:
             Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
 
+  # Test api gateway
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Cors: "'*'"
+      Auth:
+        DefaultAuthorizer: MyCognitoAuthorizer
+        Authorizers:
+          MyCognitoAuthorizer:
+            UserPoolArn:
+              Fn::GetAtt: [CognitoUserPool, Arn]
+
   AddHouseFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -219,25 +268,37 @@ Resources:
       Environment:
         Variables:
           EVENT_BUS_NAME: !Ref EventBus
-          AWS_REGION: !Ref AWS::Region
       Events:
-        AddHouseAPI:
+        MyApiEvent:
           Type: Api
           Properties:
-            Path: /data/house/add  
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/house/add
             Method: POST
             Auth:
-              Authorizer: CognitoAuthorizer
-              AuthorizationScopes:
-                - email
-                - profile
+              Authorizer: MyCognitoAuthorizer
+      # Events:
+      #   AddHouseAPI:
+      #     Type: Api
+      #     Properties:
+      #       Path: /data/house/add  
+      #       Method: POST
+      #       Auth:
+      #         Authorizer: CognitoAuthorizer
+      #         type: COGNITO_USER_POOLS
+      #         AuthorizationScopes:
+      #           - email
+      #           - profile
       Policies:
         - Statement:
           - Effect: Allow
             Action:
               - events:PutEvents
             Resource: !GetAtt EventBus.Arn
-        
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
 
   # userData function
   UserDataFunction:
@@ -276,8 +337,32 @@ Resources:
   EventBridgeLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/events/${ApplicationName}-events
+      LogGroupName: !Sub /aws/events/${ApplicationName}-event-bus
       RetentionInDays: 14
+  
+  EventBusLoggingRole:
+    Type: AWS::IAM::Role
+    Properties:
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: events.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: EventBusLoggingPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: 
+                    - !GetAtt EventBusLogging.Arn
+                    - !Join ['', [!GetAtt EventBusLogging.Arn, ':*']]
+
   
   
   #TODO: Figure out how to log cloud watch events
@@ -299,6 +384,10 @@ Resources:
   #     Targets:
   #       - Arn: !GetAtt UserDataFunction.Arn
   #         Id: UserDataFunctionTarget
+
+
+  # Authorizers
+
 
   CustomAuthEventRule:
     Type: AWS::Events::Rule
@@ -391,6 +480,12 @@ Resources:
           ]
         }
 
+  EventBusLogging:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/events/${ApplicationName}-events
+      RetentionInDays: 14
+
 Outputs:
   SignUpAPI:
     Description: API Gateway endpoint for signing up users
@@ -422,3 +517,4 @@ Outputs:
     Value: !Sub "https://lorgyaya-auth-domain.auth.${AWS::Region}.amazoncognito.com"
     Export:
       Name: CognitoUserPoolDomain
+  

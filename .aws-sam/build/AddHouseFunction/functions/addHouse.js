@@ -23,6 +23,7 @@ const validateRequiredFields = async (requestBody) => {
 };
 
 export const handler = async (event) => {
+    console.log('addHouse called');
     
     try
     {
@@ -37,7 +38,8 @@ export const handler = async (event) => {
 
         // Create house record
         const timestamp = new Date().toISOString();
-        const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
+        const houseID = 'House#' + timestamp + Math.random().toString(36).substr(2, 9);
+        //const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
 
         const params = {
             Entries: [
