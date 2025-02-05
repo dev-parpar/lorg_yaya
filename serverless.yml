@@ -289,8 +289,7 @@ Resources:
       Policies:
         - Statement:
           - Effect: Allow
-            Action:
-              - events:PutEvents
+            Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
           - Effect: Allow
             Action:
@@ -370,11 +369,14 @@ Resources:
       EventPattern:
         source:
           - custom.auth
+          - addupdate.house
         detail-type:
           - ProfileCreation
+          - AddUpdateHouse
         detail:
           eventName:
             - USER_PROFILE_CREATE
+            - HOUSE_ADD_UPDATE
       State: ENABLED
       Targets:
         - Arn: !GetAtt UserDataFunction.Arn
@@ -452,6 +454,8 @@ Resources:
             }
           ]
         }
+
+
 
 Outputs:
   SignUpAPI:

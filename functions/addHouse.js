@@ -23,9 +23,7 @@ const validateRequiredFields = async (requestBody) => {
 };
 
 export const handler = async (event) => {
-    console.log('Event: ', JSON.stringify(event, null, 2));
-    console.log('Headers:', JSON.stringify(event.headers, null, 2));
-    console.log('Auth Context:', JSON.stringify(event.requestContext.authorizer, null, 2));
+    console.log('addHouse called');
     
     try
     {
@@ -33,14 +31,15 @@ export const handler = async (event) => {
         const requestBody = JSON.parse(event.body);
         
         // Get user information from incognito user
-        const userID = event.requestContext.authorizer.claims.sub;
+        const userID = 'USER#' + event.requestContext.authorizer.claims.sub;
         const userEmail = event.requestContext.authorizer.claims.email;
         
         validateRequiredFields(requestBody);
 
         // Create house record
         const timestamp = new Date().toISOString();
-        const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
+        const houseID = 'House#' + timestamp + Math.random().toString(36).substr(2, 9);
+        //const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
 
         const params = {
             Entries: [
