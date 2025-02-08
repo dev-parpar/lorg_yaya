@@ -8,7 +8,7 @@ const _eventBridgeClient = new EventBridgeClient({
 // TODO: Convert this function into add update function
 
 const validateRequiredFields = async (requestBody) => {
-    const requiredFields = ['name', 'address', 'city', 'state', 'zip', 'country'];
+    const requiredFields = ['name', 'type'];
 
     for (const field of requiredFields) {
         if (!requestBody[field]) {
@@ -23,7 +23,7 @@ const validateRequiredFields = async (requestBody) => {
 };
 
 export const handler = async (event) => {
-    console.log('addHouse called');
+    console.log('createItem called');
     
     try
     {
@@ -38,31 +38,27 @@ export const handler = async (event) => {
 
         // Create house record
         const timestamp = new Date().toISOString();
-        const houseID = 'HOUSE#' + timestamp + Math.random().toString(36).substr(2, 9);
-        //const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
+        // TODO: Create meaningful Item ID
+        const itemID = 'Item#' + timestamp + Math.random().toString(36).substr(2, 9);
 
         const params = {
             Entries: [
                 {
                     EventBusName: process.env.EVENT_BUS_NAME,
-                    Source: 'addupdate.house',
-                    DetailType: 'AddUpdateHouse',
+                    Source: 'create.item',
+                    DetailType: 'CreateItem',
                     Detail: JSON.stringify({
-                        eventName: 'HOUSE_ADD_UPDATE',
+                        eventName: 'CREATE_ITEM',
                         data: {
                             pkID: userID,
-                            stID: houseID,
+                            stID: itemID,
                             name: requestBody.name,
-                            address: requestBody.address,
-                            city: requestBody.city,
-                            state: requestBody.state,
-                            zip: requestBody.zip,
-                            country: requestBody.country,
+                            type: requestBody.type,
                             createdAt: timestamp,
                             updatedAt: timestamp,
                             createdBy: userID,
                             updatedBy: userID,
-                            // TODO: Add a way to insert an image link to the house
+                            // TODO: Add a way to insert an image link to the Item
                         }
                     }),
                 }
@@ -73,7 +69,7 @@ export const handler = async (event) => {
         try
         {
             const response = await _eventBridgeClient.send(new PutEventsCommand(params));
-            console.log('Event Bridge response (add House): ', JSON.stringify(response, null, 2));
+            console.log('Event Bridge response (create Item): ', JSON.stringify(response, null, 2));
         }
         catch (error)
         {
@@ -92,14 +88,14 @@ export const handler = async (event) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: 'House added successfully',
-                houseID: houseID
+                message: 'Item Created successfully',
+                itemID: itemID
             })
         };
     }
     catch (error) 
     {
-        console.error('Unable to add a new house:', error);
+        console.error('Unable to create a new Item:', error);
         return {
             statusCode: error.statusCode || 500,
             body: JSON.stringify({ 

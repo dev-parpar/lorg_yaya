@@ -20,6 +20,11 @@ const generateKeys = (eventName, data) => {
                 primary_key: `${data.pkID}`,
                 sort_key: `${data.stID}`
             }
+        case 'CREATE_ITEM':
+            return {
+                primary_key: `${data.pkID}`,
+                sort_key: `${data.stID}`
+            };
         default:
             return {};
     }

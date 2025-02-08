@@ -274,18 +274,34 @@ Resources:
             Method: POST
             Auth:
               Authorizer: MyCognitoAuthorizer
-      # Events:
-      #   AddHouseAPI:
-      #     Type: Api
-      #     Properties:
-      #       Path: /data/house/add  
-      #       Method: POST
-      #       Auth:
-      #         Authorizer: CognitoAuthorizer
-      #         type: COGNITO_USER_POOLS
-      #         AuthorizationScopes:
-      #           - email
-      #           - profile
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+
+  CreateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/createItem.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/item/create
+            Method: POST
+            Auth:
+              Authorizer: MyCognitoAuthorizer
       Policies:
         - Statement:
           - Effect: Allow
@@ -370,13 +386,19 @@ Resources:
         source:
           - custom.auth
           - addupdate.house
+          - create.item
+          - addupdate.item
         detail-type:
           - ProfileCreation
           - AddUpdateHouse
+          - CreateItem
+          - AddUpdateItem
         detail:
           eventName:
             - USER_PROFILE_CREATE
             - HOUSE_ADD_UPDATE
+            - CREATE_ITEM
+            - ADD_UPDATE_ITEM
       State: ENABLED
       Targets:
         - Arn: !GetAtt UserDataFunction.Arn
@@ -393,17 +415,6 @@ Resources:
       FunctionName: !GetAtt UserDataFunction.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt CustomAuthEventRule.Arn
-
-  # # No longer needed
-  # #TODO: delete this somehow
-  # UserDataFunctionEventPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     Action: lambda:InvokeFunction
-  #     FunctionName: !GetAtt UserDataFunction.Arn
-  #     Principal: events.amazonaws.com
-  #     SourceArn: !GetAtt CognitoEventRule.Arn
-
 
   #Policies
   EventBridgeCLoudWatchLogsPolicy:
