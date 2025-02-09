@@ -1,5 +1,5 @@
 import { EventBridgeClient, PutEventsCommand }from '@aws-sdk/client-eventbridge';
-import { validate } from 'uuid';
+import { PKPrefix, EventType, isValidEventType, isValidPKPrefix } from '../utils/enums.js';
 
 const _eventBridgeClient = new EventBridgeClient({
     region: process.env.AWS_REGION
@@ -31,14 +31,14 @@ export const handler = async (event) => {
         const requestBody = JSON.parse(event.body);
         
         // Get user information from incognito user
-        const userID = 'USER#' + event.requestContext.authorizer.claims.sub;
+        const userID = PKPrefix.USER + event.requestContext.authorizer.claims.sub;
         const userEmail = event.requestContext.authorizer.claims.email;
         
         validateRequiredFields(requestBody);
 
         // Create house record
         const timestamp = new Date().toISOString();
-        const houseID = 'HOUSE#' + timestamp + Math.random().toString(36).substr(2, 9);
+        const houseID = PKPrefix.HOUSE + timestamp + Math.random().toString(36).substr(2, 9);
         //const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
 
         const params = {
@@ -48,7 +48,7 @@ export const handler = async (event) => {
                     Source: 'addupdate.house',
                     DetailType: 'AddUpdateHouse',
                     Detail: JSON.stringify({
-                        eventName: 'HOUSE_ADD_UPDATE',
+                        eventName: EventType.HOUSE_ADD_UPDATE,
                         data: {
                             pkID: userID,
                             stID: houseID,

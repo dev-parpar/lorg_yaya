@@ -1,5 +1,6 @@
 import { DynamoDBClient} from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PKPrefix, EventType, isValidEventType, isValidPKPrefix } from '../utils/enums.js';
 
 const _dynamoDBClient = new DynamoDBClient({});
 const _docClient = DynamoDBDocumentClient.from(_dynamoDBClient);
@@ -8,19 +9,18 @@ const _docClient = DynamoDBDocumentClient.from(_dynamoDBClient);
 const generateKeys = (eventName, data) => {
     switch (eventName)
     {
-        case 'USER_PROFILE_CREATE':
-        case 'USER_PROFILE_UPDATE':
+        case EventType.USER_PROFILE_CREATE:
+        case EventType.USER_PROFILE_UPDATE:
             return {
-                primary_key: `USER#${data.pkID}`,
-                sort_key: `PROFILE#${data.stID}`
+                primary_key: `${PKPrefix.USER}${data.pkID}`,
+                sort_key: `${PKPrefix.PROFILE}#${data.stID}`
             };
-        case 'HOUSE_ADD_UPDATE':
-            console.log('house add update event')
+        case EventType.HOUSE_ADD_UPDATE:
             return {
                 primary_key: `${data.pkID}`,
                 sort_key: `${data.stID}`
             }
-        case 'CREATE_ITEM':
+        case EventType.CREATE_ITEM:
             return {
                 primary_key: `${data.pkID}`,
                 sort_key: `${data.stID}`

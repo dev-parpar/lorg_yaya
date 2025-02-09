@@ -283,6 +283,7 @@ Resources:
             Action:
               - cognito-idp:GetUser
             Resource: !GetAtt CognitoUserPool.Arn
+    
 
   CreateItemFunction:
     Type: AWS::Serverless::Function
