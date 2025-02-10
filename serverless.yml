@@ -327,7 +327,35 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref ApiGatewayApi
-            Path: /data/item/add
+            Path: /data/house/item/add
+            Method: POST
+            Auth:
+              Authorizer: MyCognitoAuthorizer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+
+  UpdateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/updateHouseItemInfo.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/house/item/udpate
             Method: POST
             Auth:
               Authorizer: MyCognitoAuthorizer
@@ -418,18 +446,21 @@ Resources:
           - create.item
           - addupdate.item
           - add.item
+          - update.house.item
         detail-type:
           - ProfileCreation
           - AddUpdateHouse
           - CreateItem
           - AddUpdateItem
           - AddItem
+          - UpdateHouseItem
         detail:
           eventName:
             - USER_PROFILE_CREATE
             - HOUSE_ADD_UPDATE
             - CREATE_ITEM
             - ADD_ITEM
+            - UPDATE_HOUSE_ITEM
       State: ENABLED
       Targets:
         - Arn: !GetAtt UserDataFunction.Arn

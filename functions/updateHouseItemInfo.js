@@ -1,13 +1,13 @@
 import { EventBridgeClient, PutEventsCommand }from '@aws-sdk/client-eventbridge';
+import { PKPrefix, EventType, isValidEventType, isValidPKPrefix } from '../utils/enums.js';
 
 const _eventBridgeClient = new EventBridgeClient({
     region: process.env.AWS_REGION
 });
 
 // TODO: Convert this function into add update function
-
 const validateRequiredFields = async (requestBody) => {
-    const requiredFields = ['name', 'type'];
+    const requiredFields = ['item_ID ', 'house_ID'];
 
     for (const field of requiredFields) {
         if (!requestBody[field]) {
@@ -21,8 +21,18 @@ const validateRequiredFields = async (requestBody) => {
     }
 };
 
+const updateObject = (requestBody) => {
+    const updateData = {
+        pkID: requestBody.house_ID,
+        stID: requestBody.item_ID,
+        updatedAt: new Date().toISOString()
+    }
+
+    return updateData;
+}
+
 export const handler = async (event) => {
-    console.log('createItem called');
+    console.log('updateItem called');
     
     try
     {
@@ -30,35 +40,32 @@ export const handler = async (event) => {
         const requestBody = JSON.parse(event.body);
         
         // Get user information from incognito user
-        const userID = 'USER#' + event.requestContext.authorizer.claims.sub;
+        const userID = event.requestContext.authorizer.claims.sub;
         const userEmail = event.requestContext.authorizer.claims.email;
         
         validateRequiredFields(requestBody);
 
-        // Create house record
+        // Create Item record
         const timestamp = new Date().toISOString();
-        // TODO: Create meaningful Item ID
-        const itemID = 'Item#' + timestamp + Math.random().toString(36).substr(2, 9);
+        const itemID = requestBody.item_ID
+        const houseID = requestBody.house_ID
+        //const houseID = 'HOUSE#${timestamp}_${Math.random().toString(36).substr(2,9)}';
+            
+        const house_item_data = updateObject(requestBody);
+        if (requestBody.qty !== undefined) house_item_data.item_qty = requestBody.qty;
+        if (requestBody.start_date !== undefined) house_item_data.start_date = requestBody.start_date;
+        if (requestBody.end_date !== undefined) house_item_data.end_date = requestBody.end_date;
+        house_item_data.updatedBy = userID;
 
         const params = {
             Entries: [
                 {
                     EventBusName: process.env.EVENT_BUS_NAME,
-                    Source: 'create.item',
-                    DetailType: 'CreateItem',
+                    Source: 'update.house.item',
+                    DetailType: 'UpdateHouseItem',
                     Detail: JSON.stringify({
-                        eventName: 'CREATE_ITEM',
-                        data: {
-                            pkID: userID,
-                            stID: itemID,
-                            name: requestBody.name,
-                            type: requestBody.type,
-                            createdAt: timestamp,
-                            updatedAt: timestamp,
-                            createdBy: userID,
-                            updatedBy: userID,
-                            // TODO: Add a way to insert an image link to the Item
-                        }
+                        eventName: EventType.UPDATE_HOUSE_ITEM,
+                        data: house_item_data
                     }),
                 }
             ]
@@ -68,7 +75,7 @@ export const handler = async (event) => {
         try
         {
             const response = await _eventBridgeClient.send(new PutEventsCommand(params));
-            console.log('Event Bridge response (create Item): ', JSON.stringify(response, null, 2));
+            console.log('Event Bridge response (update house Item Info): ', JSON.stringify(response, null, 2));
         }
         catch (error)
         {
@@ -87,14 +94,14 @@ export const handler = async (event) => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                message: 'Item Created successfully',
-                itemID: itemID
+                //TODO: Update code to utilize actual Item Name and House Name. Could be done in front end probably!!
+                message: 'Item ' + itemID + ' in house '+ houseID + ' added successfully to house',
             })
         };
     }
     catch (error) 
     {
-        console.error('Unable to create a new Item:', error);
+        console.error('Unable to update item in house:', error);
         return {
             statusCode: error.statusCode || 500,
             body: JSON.stringify({ 

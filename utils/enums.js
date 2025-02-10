@@ -14,7 +14,8 @@ export const EventType = {
     ADD_ITEM: 'ADD_ITEM',
     REMOVE_ITEM: 'REMOVE_ITEM',
     UPDATE_ITEM: 'UPDATE_ITEM',
-    DELETE_ITEM: 'DELETE_ITEM'
+    DELETE_ITEM: 'DELETE_ITEM',
+    UPDATE_HOUSE_ITEM: 'UPDATE_HOUSE_ITEM'
 };
 
 export const isValidEventType = (eventName) => {
