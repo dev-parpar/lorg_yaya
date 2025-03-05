@@ -6,8 +6,10 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SignUpFormData } from '../types/auth.types';
+import { authService } from '../services/auth.service';
 
 export default function SignUpScreen() {
   const [formData, setFormData] = useState<SignUpFormData>({
@@ -16,13 +18,30 @@ export default function SignUpScreen() {
     firstName: '',
     lastName: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
     try {
-      // TODO: Implement sign up logic
-      console.log('Sign up:', formData);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to sign up');
+      setLoading(true);
+      console.log('Signing up:', formData);
+      await authService.signUp(formData);
+      console.log('Sign up successful');
+      Alert.alert('Success', 'Account created successfully!');
+      // You can add navigation to login screen here
+    } catch (error: any) {
+      console.log('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.response?.data?.message
+      });
+      
+      Alert.alert(
+        'Error',
+        error.response?.data?.message || 'Failed to sign up'
+      );
+      console.error('Sign up error:', error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -56,8 +75,16 @@ export default function SignUpScreen() {
         onChangeText={(text) => setFormData({ ...formData, password: text })}
         secureTextEntry
       />
-      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-        <Text style={styles.buttonText}>Sign Up</Text>
+      <TouchableOpacity 
+        style={styles.button} 
+        onPress={handleSignUp}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="white" />
+        ) : (
+          <Text style={styles.buttonText}>Sign Up</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

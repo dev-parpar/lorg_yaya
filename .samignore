@@ -1,0 +1,10 @@
+frontend/**/*
+frontend/lorgyaya_ui/node_modules/**
+frontend/lorgyaya_ui/package.json
+frontend/lorgyaya_ui/package-lock.json
+.git/**/*
+**/*.md
+**/*.txt
+**/test/**
+**/.DS_Store
+

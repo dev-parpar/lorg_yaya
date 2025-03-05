@@ -52,11 +52,44 @@ export const handler = async (event) => {
       };
   } catch (error) {
       console.error('Signup error:', error);
-      return {
-          statusCode: error.statusCode || 500,
-          body: JSON.stringify({ 
-              error: error.message || 'Internal server error'
-          })
-      };
+
+      switch(error.Name)
+      {
+        case 'UsernameExistsException':
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: 'An account with this email already exists'
+                })
+            };
+        case 'InvalidPasswordException':
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: 'Password does not meet requirements. Password must have at least 8 characters, including uppercase and lowercase letters, numbers, and symbols'
+                })
+            };
+        case 'InvalidParameterException':
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: 'Invalid parameter provided. Please check your input'
+                })
+            };
+        case 'TooManyRequestsException':
+            return {
+                statusCode: 429,
+                body: JSON.stringify({
+                    error: 'Too many requests. Please try again later'
+                })
+            };
+        default:
+            return {
+                statusCode: error.statusCode || 500,
+                body: JSON.stringify({
+                    error: 'An unexpected error occurred. Please try again later'
+                })
+            };
+      }
   }
 };

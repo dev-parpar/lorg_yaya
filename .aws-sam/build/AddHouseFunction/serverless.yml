@@ -27,9 +27,6 @@ Resources:
     Type: AWS::Events::EventBus
     Properties:
       Name: !Sub '${ApplicationName}-event-bus'
-      LoggingOptions:
-        Enabled: true
-        LogGroupArn: !GetAtt EvenyBusLogging.Arn
 
   CognitoUserPool:
     Type: "AWS::Cognito::UserPool"
@@ -277,23 +274,95 @@ Resources:
             Method: POST
             Auth:
               Authorizer: MyCognitoAuthorizer
-      # Events:
-      #   AddHouseAPI:
-      #     Type: Api
-      #     Properties:
-      #       Path: /data/house/add  
-      #       Method: POST
-      #       Auth:
-      #         Authorizer: CognitoAuthorizer
-      #         type: COGNITO_USER_POOLS
-      #         AuthorizationScopes:
-      #           - email
-      #           - profile
       Policies:
         - Statement:
           - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
             Action:
-              - events:PutEvents
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+    
+
+  CreateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/createItem.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/item/create
+            Method: POST
+            Auth:
+              Authorizer: MyCognitoAuthorizer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+
+  AddItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/addItem.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/house/item/add
+            Method: POST
+            Auth:
+              Authorizer: MyCognitoAuthorizer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: events:PutEvents
+            Resource: !GetAtt EventBus.Arn
+          - Effect: Allow
+            Action:
+              - cognito-idp:GetUser
+            Resource: !GetAtt CognitoUserPool.Arn
+
+  UpdateItemFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: functions/updateHouseItemInfo.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          EVENT_BUS_NAME: !Ref EventBus
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/house/item/udpate
+            Method: POST
+            Auth:
+              Authorizer: MyCognitoAuthorizer
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
           - Effect: Allow
             Action:
@@ -337,32 +406,8 @@ Resources:
   EventBridgeLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
-      LogGroupName: !Sub /aws/events/${ApplicationName}-event-bus
+      LogGroupName: !Sub /aws/events/${ApplicationName}-events
       RetentionInDays: 14
-  
-  EventBusLoggingRole:
-    Type: AWS::IAM::Role
-    Properties:
-        AssumeRolePolicyDocument:
-          Version: '2012-10-17'
-          Statement:
-            - Effect: Allow
-              Principal:
-                Service: events.amazonaws.com
-              Action: sts:AssumeRole
-        Policies:
-          - PolicyName: EventBusLoggingPolicy
-            PolicyDocument:
-              Version: '2012-10-17'
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - logs:CreateLogStream
-                    - logs:PutLogEvents
-                  Resource: 
-                    - !GetAtt EventBusLogging.Arn
-                    - !Join ['', [!GetAtt EventBusLogging.Arn, ':*']]
-
   
   
   #TODO: Figure out how to log cloud watch events
@@ -397,11 +442,25 @@ Resources:
       EventPattern:
         source:
           - custom.auth
+          - addupdate.house
+          - create.item
+          - addupdate.item
+          - add.item
+          - update.house.item
         detail-type:
           - ProfileCreation
+          - AddUpdateHouse
+          - CreateItem
+          - AddUpdateItem
+          - AddItem
+          - UpdateHouseItem
         detail:
           eventName:
             - USER_PROFILE_CREATE
+            - HOUSE_ADD_UPDATE
+            - CREATE_ITEM
+            - ADD_ITEM
+            - UPDATE_HOUSE_ITEM
       State: ENABLED
       Targets:
         - Arn: !GetAtt UserDataFunction.Arn
@@ -418,17 +477,6 @@ Resources:
       FunctionName: !GetAtt UserDataFunction.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt CustomAuthEventRule.Arn
-
-  # # No longer needed
-  # #TODO: delete this somehow
-  # UserDataFunctionEventPermission:
-  #   Type: AWS::Lambda::Permission
-  #   Properties:
-  #     Action: lambda:InvokeFunction
-  #     FunctionName: !GetAtt UserDataFunction.Arn
-  #     Principal: events.amazonaws.com
-  #     SourceArn: !GetAtt CognitoEventRule.Arn
-
 
   #Policies
   EventBridgeCLoudWatchLogsPolicy:
@@ -480,11 +528,7 @@ Resources:
           ]
         }
 
-  EventBusLogging:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub /aws/events/${ApplicationName}-events
-      RetentionInDays: 14
+
 
 Outputs:
   SignUpAPI:
