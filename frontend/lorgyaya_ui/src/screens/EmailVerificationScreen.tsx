@@ -11,6 +11,7 @@ import {
 import { VerificationData } from '../types/auth.types';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation.types';
+import { authService } from '../services/auth.service';
 
 type Props = {
   route: RouteProp<RootStackParamList, 'EmailVerification'>;
@@ -25,8 +26,8 @@ export default function EmailVerificationScreen({ route, navigation }: Props) {
   const handleVerification = async () => {
     try {
       setLoading(true);
-      // TODO: Add verification API call here
       console.log('Verifying code:', { email, code });
+      await authService.verifyEmail({ email, code });
       Alert.alert('Success', 'Email verified successfully!');
       // Navigate to login or home screen
     } catch (error: any) {

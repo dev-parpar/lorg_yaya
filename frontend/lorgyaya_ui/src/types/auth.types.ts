@@ -9,3 +9,8 @@ export interface SignUpFormData {
     email: string;
     code: string;
   }
+
+  export interface VerificationData {
+    email: string;
+    code: string;
+  }
