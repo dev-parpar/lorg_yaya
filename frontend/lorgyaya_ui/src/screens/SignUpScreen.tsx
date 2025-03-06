@@ -10,8 +10,14 @@ import {
 } from 'react-native';
 import { SignUpFormData } from '../types/auth.types';
 import { authService } from '../services/auth.service';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../types/navigation.types';
 
-export default function SignUpScreen() {
+type Props = {
+  navigation: StackNavigationProp<RootStackParamList, 'SignUp'>;
+}
+
+export default function SignUpScreen({ navigation }: Props) {
   const [formData, setFormData] = useState<SignUpFormData>({
     email: '',
     password: '',
@@ -26,7 +32,8 @@ export default function SignUpScreen() {
       console.log('Signing up:', formData);
       await authService.signUp(formData);
       console.log('Sign up successful');
-      Alert.alert('Success', 'Account created successfully!');
+      Alert.alert('Success', 'Please check your email for verification code');
+      navigation.navigate('EmailVerification', { email: formData.email });
       // You can add navigation to login screen here
     } catch (error: any) {
       console.log('Error details:', {

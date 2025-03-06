@@ -4,3 +4,8 @@ export interface SignUpFormData {
     firstName: string;
     lastName: string;
   }
+
+  export interface VerificationData {
+    email: string;
+    code: string;
+  }
