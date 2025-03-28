@@ -14,3 +14,18 @@ export interface SignUpFormData {
     email: string;
     code: string;
   }
+
+  export interface SignInData {
+    email: string;
+    password: string;
+  }
+
+  export interface House {
+    name: string;
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+
+  }

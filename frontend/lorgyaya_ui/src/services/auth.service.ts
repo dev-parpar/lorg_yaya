@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { SignUpFormData, VerificationData } from '../types/auth.types';
+import { SignUpFormData, VerificationData, SignInData } from '../types/auth.types';
 
 // TODO: Add to config
 const API_URL = 'https://73gkv63pk4.execute-api.us-east-2.amazonaws.com/test'; // Replace with your actual backend URL
@@ -26,6 +26,17 @@ export const authService = {
     } 
     catch (error) 
     {
+      throw error;
+    }
+  },
+
+  async SignIn(data: SignInData) {
+    try {
+      const response = await axios.post(`${API_URL}/auth/signin`, data);
+      return response.data;
+
+    }
+    catch (error) {
       throw error;
     }
   }

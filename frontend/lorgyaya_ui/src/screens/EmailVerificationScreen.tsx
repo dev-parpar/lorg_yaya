@@ -12,11 +12,13 @@ import { VerificationData } from '../types/auth.types';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation.types';
 import { authService } from '../services/auth.service';
+import { StackScreenProps } from '@react-navigation/stack';
 
 type Props = {
   route: RouteProp<RootStackParamList, 'EmailVerification'>;
   navigation: any;
 };
+
 
 export default function EmailVerificationScreen({ route, navigation }: Props) {
   const { email } = route.params;
