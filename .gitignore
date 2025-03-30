@@ -89,3 +89,4 @@ out/
 *.cert
 *.key
 test-house-api.sh
+node_modules

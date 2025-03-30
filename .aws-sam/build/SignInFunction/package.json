@@ -13,7 +13,8 @@
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.731.1",
     "@aws-sdk/client-dynamodb": "^3.731.1",
-    "@aws-sdk/lib-dynamodb": "^3.731.1"
+    "@aws-sdk/lib-dynamodb": "^3.731.1",
+    "expo-dev-client": "~5.0.12"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.147"

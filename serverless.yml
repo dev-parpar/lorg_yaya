@@ -243,6 +243,28 @@ Resources:
             Action: events:PutEvents
             Resource: !GetAtt EventBus.Arn
 
+  FetchFromDbFunction:
+    Type: AWS:Serverless::Function
+    Properties:
+      Handler: functions/fetchFromDb.handler
+      Runtime: nodejs18.x
+      CodeUri: ./
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
+      Events:
+        MyApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ApiGatewayApi
+            Path: /data/fetch
+            Method: POST  
+            Auth:
+              Authorizer: MyCognitoAuthorizer
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DynamoDBTable
+
   # Test api gateway
   ApiGatewayApi:
     Type: AWS::Serverless::Api
