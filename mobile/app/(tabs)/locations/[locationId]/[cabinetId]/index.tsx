@@ -30,6 +30,7 @@ export default function CabinetDetailScreen() {
   const [showShelfForm, setShowShelfForm] = useState(false);
   const [showItemForm, setShowItemForm] = useState(false);
   const [shelfName, setShelfName] = useState("");
+  const [shelfPosition, setShelfPosition] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [formError, setFormError] = useState<string | null>(null);
@@ -44,6 +45,18 @@ export default function CabinetDetailScreen() {
     queryKey: ["items", cabinetId, shelfFilter],
     queryFn: () => cabinetsApi.getItems(cabinetId, shelfFilter),
     enabled: !!cabinetId,
+  });
+
+  const createShelfMutation = useMutation({
+    mutationFn: cabinetsApi.createShelf,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
+      setShowShelfForm(false);
+      setShelfName("");
+      setShelfPosition("");
+      setFormError(null);
+    },
+    onError: (e: Error) => setFormError(e.message),
   });
 
   const createItemMutation = useMutation({
@@ -219,26 +232,36 @@ export default function CabinetDetailScreen() {
               onChangeText={setShelfName}
               placeholder="e.g. Top Shelf"
             />
+            <Input
+              label="Shelf Number / Position"
+              value={shelfPosition}
+              onChangeText={setShelfPosition}
+              keyboardType="number-pad"
+              placeholder={`e.g. ${(shelves?.length ?? 0) + 1}`}
+            />
             {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
             <Button
               onPress={() => {
-                if (!shelfName.trim()) { setFormError("Name required."); return; }
+                if (!shelfName.trim()) { setFormError("Name is required."); return; }
                 setFormError(null);
-                // POST to shelves endpoint
-                fetch(`${process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000"}/api/cabinets/${cabinetId}/shelves`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ name: shelfName.trim(), position: (shelves?.length ?? 0) + 1 }),
-                }).then(() => {
-                  queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
-                  setShowShelfForm(false);
-                  setShelfName("");
-                });
+                const position = shelfPosition.trim()
+                  ? parseInt(shelfPosition.trim(), 10)
+                  : (shelves?.length ?? 0) + 1;
+                createShelfMutation.mutate({ cabinetId, name: shelfName.trim(), position });
               }}
+              loading={createShelfMutation.isPending}
             >
               Create Shelf
             </Button>
-            <Button onPress={() => { setShowShelfForm(false); setFormError(null); }} variant="ghost">
+            <Button
+              onPress={() => {
+                setShowShelfForm(false);
+                setShelfName("");
+                setShelfPosition("");
+                setFormError(null);
+              }}
+              variant="ghost"
+            >
               Cancel
             </Button>
           </View>

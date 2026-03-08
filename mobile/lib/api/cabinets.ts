@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { Cabinet, ShelfWithCounts, Item } from "@/types";
+import type { Cabinet, Shelf, ShelfWithCounts, Item } from "@/types";
 
 export const cabinetsApi = {
   get: (id: string) => apiClient.get<Cabinet>(`/api/cabinets/${id}`),
@@ -14,6 +14,9 @@ export const cabinetsApi = {
 
   getShelves: (cabinetId: string) =>
     apiClient.get<ShelfWithCounts[]>(`/api/cabinets/${cabinetId}/shelves`),
+
+  createShelf: (data: { cabinetId: string; name: string; position?: number }) =>
+    apiClient.post<Shelf>("/api/shelves", data),
 
   getItems: (cabinetId: string, shelfFilter?: string) => {
     const query = shelfFilter ? `?shelf=${shelfFilter}` : "";
