@@ -250,7 +250,8 @@ export default function CabinetDetailScreen() {
 
       {/* ── Assign to shelf modal ─────────────────────────────────────── */}
       <Modal visible={showAssignModal} animationType="slide" presentationStyle="pageSheet">
-        <Screen>
+        {/* scroll={false} — FlatList below owns the scrolling, not Screen */}
+        <Screen scroll={false}>
           <PageHeader title="Assign to Shelf" showBack={false} />
           <Text variant="muted" className="mb-4">
             Pick a shelf for <Text variant="body" className="font-semibold">{itemToAssign?.name}</Text>
@@ -282,6 +283,8 @@ export default function CabinetDetailScreen() {
             ListEmptyComponent={
               <Text variant="muted" className="text-center mt-8">No shelves in this cabinet yet.</Text>
             }
+            contentContainerStyle={{ paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
           />
           <Button
             onPress={() => { setShowAssignModal(false); setItemToAssign(null); }}
