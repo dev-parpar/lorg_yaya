@@ -49,20 +49,37 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { username } = createProfileSchema.parse(body);
 
-    // Check uniqueness (race-condition safe — DB unique constraint is the source of truth)
-    const profile = await prisma.profile.create({
-      data: { userId, username },
-    });
+    // Race-condition safe — the DB unique constraint is the source of truth.
+    // If it fires (P2002), we inspect the conflict: if the row belongs to a
+    // soft-deleted account the username is reclaimable; otherwise it is truly
+    // taken by an active account.
+    let profile;
+    try {
+      profile = await prisma.profile.create({ data: { userId, username } });
+    } catch (createError) {
+      if ((createError as { code?: string }).code !== "P2002") throw createError;
+
+      // P2002 — check whether the conflicting profile is soft-deleted
+      const conflicting = await prisma.profile.findFirst({
+        where: { username, deletionRequestedAt: { not: null } },
+      });
+
+      if (!conflicting) {
+        // Conflict is with an active account — username is genuinely taken
+        return NextResponse.json(
+          { error: "That username is already taken. Please choose another." },
+          { status: 409 },
+        );
+      }
+
+      // Conflicting profile belongs to a deleted account — reclaim the username
+      // by removing the orphaned row and creating a fresh one for this user.
+      await prisma.profile.delete({ where: { id: conflicting.id } });
+      profile = await prisma.profile.create({ data: { userId, username } });
+    }
 
     return NextResponse.json({ data: profile }, { status: HTTP_STATUS.CREATED });
   } catch (error) {
-    // Prisma unique constraint violation
-    if ((error as { code?: string }).code === "P2002") {
-      return NextResponse.json(
-        { error: "That username is already taken. Please choose another." },
-        { status: 409 },
-      );
-    }
     return handleRouteError(error, "POST /api/profiles");
   }
 }

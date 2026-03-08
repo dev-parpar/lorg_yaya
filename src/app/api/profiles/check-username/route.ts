@@ -25,7 +25,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const existing = await prisma.profile.findUnique({ where: { username } });
+  // Only count active (non-deleted) profiles as "taken".
+  // Soft-deleted profiles have deletionRequestedAt set — their usernames
+  // are available for re-registration.
+  const existing = await prisma.profile.findFirst({
+    where: { username, deletionRequestedAt: null },
+  });
 
   return NextResponse.json({ available: !existing });
 }
