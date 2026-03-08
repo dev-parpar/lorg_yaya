@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { SectionList, View, Modal, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
+import { SectionList, View, Modal, Alert, ActivityIndicator, TouchableOpacity, FlatList } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layers, Package2, ChevronRight } from "lucide-react-native";
+import { Layers, Package2, ChevronRight, ArrowRightLeft } from "lucide-react-native";
 import { cabinetsApi } from "@/lib/api/cabinets";
 import { itemsApi } from "@/lib/api/items";
 import type { ShelfWithCounts, Item } from "@/types";
@@ -27,13 +27,21 @@ export default function CabinetDetailScreen() {
   }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Form visibility
   const [showShelfForm, setShowShelfForm] = useState(false);
   const [showItemForm, setShowItemForm] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+
+  // Form field state
   const [shelfName, setShelfName] = useState("");
   const [shelfPosition, setShelfPosition] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Item being assigned
+  const [itemToAssign, setItemToAssign] = useState<Item | null>(null);
 
   const { data: shelves, isLoading: shelvesLoading, error: shelvesError, refetch: refetchShelves } = useQuery({
     queryKey: ["shelves", cabinetId],
@@ -64,9 +72,23 @@ export default function CabinetDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
       setShowItemForm(false);
-      setItemName(""); setItemQty("1");
+      setItemName("");
+      setItemQty("1");
+      setFormError(null);
     },
     onError: (e: Error) => setFormError(e.message),
+  });
+
+  const assignShelfMutation = useMutation({
+    mutationFn: ({ itemId, shelfId }: { itemId: string; shelfId: string }) =>
+      itemsApi.update(itemId, { shelfId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
+      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
+      setShowAssignModal(false);
+      setItemToAssign(null);
+    },
+    onError: (e: Error) => Alert.alert("Error", e.message),
   });
 
   const deleteItemMutation = useMutation({
@@ -89,6 +111,11 @@ export default function CabinetDetailScreen() {
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => deleteItemMutation.mutate(id) },
     ]);
+  }
+
+  function openAssignModal(item: Item) {
+    setItemToAssign(item);
+    setShowAssignModal(true);
   }
 
   const isLoading = shelvesLoading || itemsLoading;
@@ -114,19 +141,21 @@ export default function CabinetDetailScreen() {
   }
 
   const unassignedItems = shelfFilter
-    ? (items ?? [])  // API already filters by shelf
+    ? (items ?? [])
     : (items ?? []).filter((i) => !i.shelfId);
 
   const sections: Section[] = shelfFilter
     ? [{ key: "items", title: "Items on this shelf", data: items ?? [] }]
     : [
         { key: "shelves", title: "Shelves", data: shelves ?? [] },
-        { key: "items", title: "Items (unassigned)", data: unassignedItems },
+        { key: "items", title: "Unassigned Items", data: unassignedItems },
       ];
 
   const pageTitle = shelfFilter
     ? (shelves?.find((s) => s.id === shelfFilter)?.name ?? "Shelf")
     : "Cabinet";
+
+  const hasShelves = (shelves?.length ?? 0) > 0;
 
   return (
     <Screen scroll={false}>
@@ -142,7 +171,9 @@ export default function CabinetDetailScreen() {
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderSectionHeader={({ section }) => (
           <View className="flex-row items-center justify-between mb-2 mt-4">
-            <Text variant="caption" className="font-semibold uppercase tracking-widest">{section.title}</Text>
+            <Text variant="caption" className="font-semibold uppercase tracking-widest">
+              {section.title}
+            </Text>
             {section.key === "shelves" && (
               <TouchableOpacity onPress={() => setShowShelfForm(true)}>
                 <Text variant="caption" className="text-primary">+ Add shelf</Text>
@@ -178,10 +209,30 @@ export default function CabinetDetailScreen() {
                 <View className="flex-1">
                   <Text variant="body" className="font-medium">{itm.name}</Text>
                   <Text variant="caption">Qty: {itm.quantity}</Text>
+                  {itm.shelfId && (
+                    <Text variant="caption" className="text-primary mt-0.5">
+                      {shelves?.find((s) => s.id === itm.shelfId)?.name ?? "On a shelf"}
+                    </Text>
+                  )}
                 </View>
-                <Button onPress={() => confirmDeleteItem(itm.id, itm.name)} variant="ghost" className="px-2">
-                  <Text className="text-destructive text-xs">Del</Text>
-                </Button>
+                <View className="flex-row gap-1">
+                  {/* Show assign button only when there are shelves and item is unassigned */}
+                  {!itm.shelfId && hasShelves && (
+                    <TouchableOpacity
+                      onPress={() => openAssignModal(itm)}
+                      className="rounded-lg bg-primary/10 px-2 py-1.5 mr-1"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <View className="flex-row items-center gap-1">
+                        <ArrowRightLeft size={12} color="#2563EB" />
+                        <Text variant="caption" className="text-primary font-medium">Assign</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  <Button onPress={() => confirmDeleteItem(itm.id, itm.name)} variant="ghost" className="px-2">
+                    <Text className="text-destructive text-xs">Del</Text>
+                  </Button>
+                </View>
               </View>
             </Card>
           );
@@ -197,7 +248,52 @@ export default function CabinetDetailScreen() {
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 120 }}
       />
 
-      {/* Add item modal */}
+      {/* ── Assign to shelf modal ─────────────────────────────────────── */}
+      <Modal visible={showAssignModal} animationType="slide" presentationStyle="pageSheet">
+        <Screen>
+          <PageHeader title="Assign to Shelf" showBack={false} />
+          <Text variant="muted" className="mb-4">
+            Pick a shelf for <Text variant="body" className="font-semibold">{itemToAssign?.name}</Text>
+          </Text>
+          <FlatList
+            data={shelves ?? []}
+            keyExtractor={(s) => s.id}
+            renderItem={({ item: shelf }) => (
+              <Card
+                onPress={() => {
+                  if (itemToAssign) {
+                    assignShelfMutation.mutate({ itemId: itemToAssign.id, shelfId: shelf.id });
+                  }
+                }}
+                className="mb-3"
+              >
+                <View className="flex-row items-center gap-3">
+                  <Layers size={18} color="#2563EB" />
+                  <View className="flex-1">
+                    <Text variant="body" className="font-medium">{shelf.name}</Text>
+                    <Text variant="caption">{shelf._count.items} item(s) already here</Text>
+                  </View>
+                  {assignShelfMutation.isPending && (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  )}
+                </View>
+              </Card>
+            )}
+            ListEmptyComponent={
+              <Text variant="muted" className="text-center mt-8">No shelves in this cabinet yet.</Text>
+            }
+          />
+          <Button
+            onPress={() => { setShowAssignModal(false); setItemToAssign(null); }}
+            variant="ghost"
+            className="mt-4"
+          >
+            Cancel
+          </Button>
+        </Screen>
+      </Modal>
+
+      {/* ── Add item modal ────────────────────────────────────────────── */}
       <Modal visible={showItemForm} animationType="slide" presentationStyle="pageSheet">
         <Screen>
           <PageHeader title="New Item" showBack={false} />
@@ -221,7 +317,7 @@ export default function CabinetDetailScreen() {
         </Screen>
       </Modal>
 
-      {/* Add shelf modal */}
+      {/* ── Add shelf modal ───────────────────────────────────────────── */}
       <Modal visible={showShelfForm} animationType="slide" presentationStyle="pageSheet">
         <Screen>
           <PageHeader title="New Shelf" showBack={false} />
