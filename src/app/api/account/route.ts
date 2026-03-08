@@ -34,18 +34,19 @@ export async function DELETE() {
       data: { deletionRequestedAt: new Date() },
     });
 
-    // ── 2. Revoke all active sessions for this user ──────────────────────────
-    // From the user's perspective their account is gone — they cannot sign in.
-    // The admin client is used here because only the service role can revoke
-    // sessions for another user.
-    const { error: revokeError } = await supabaseAdmin.auth.admin.signOut(
+    // ── 2. Ban the Supabase auth user ────────────────────────────────────────
+    // Setting ban_duration prevents future sign-in attempts with these
+    // credentials. 876600h ≈ 100 years (effectively permanent).
+    // This is the correct primitive — session revocation only kills existing
+    // tokens but does not block new logins. Banning does both.
+    const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
-      "others",
+      { ban_duration: "876600h" },
     );
 
-    if (revokeError) {
+    if (banError) {
       // Non-fatal: profile is already marked for deletion. Log and continue.
-      console.error("[DELETE /api/account] Session revocation failed:", revokeError.message);
+      console.error("[DELETE /api/account] Failed to ban auth user:", banError.message);
     }
 
     return new NextResponse(null, { status: 204 });
