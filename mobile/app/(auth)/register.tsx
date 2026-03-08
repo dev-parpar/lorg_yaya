@@ -1,22 +1,106 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from "react-native";
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/auth/supabase";
+import { profilesApi } from "@/lib/api/profiles";
 import { Screen } from "@/components/ui/screen";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
+
+function useUsernameCheck(username: string, delay = 500) {
+  const [status, setStatus] = useState<UsernameStatus>("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const trimmed = username.toLowerCase().trim();
+
+    if (!trimmed) {
+      setStatus("idle");
+      setMessage(null);
+      return;
+    }
+
+    if (trimmed.length < 3) {
+      setStatus("invalid");
+      setMessage("At least 3 characters required.");
+      return;
+    }
+
+    if (!/^[a-z0-9_]+$/.test(trimmed)) {
+      setStatus("invalid");
+      setMessage("Only lowercase letters, numbers, and underscores.");
+      return;
+    }
+
+    setStatus("checking");
+    setMessage(null);
+
+    const timer = setTimeout(async () => {
+      try {
+        const result = await profilesApi.checkUsername(trimmed);
+        if (result.error) {
+          setStatus("invalid");
+          setMessage(result.error);
+        } else {
+          setStatus(result.available ? "available" : "taken");
+          setMessage(result.available ? "Username is available!" : "Username is already taken.");
+        }
+      } catch {
+        setStatus("idle");
+        setMessage(null);
+      }
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [username, delay]);
+
+  return { status, message };
+}
+
+function UsernameStatusBadge({ status, message }: { status: UsernameStatus; message: string | null }) {
+  if (!message) return null;
+
+  const colors: Record<UsernameStatus, string> = {
+    idle: "text-muted-foreground",
+    checking: "text-muted-foreground",
+    available: "text-green-600",
+    taken: "text-destructive",
+    invalid: "text-destructive",
+  };
+
+  return <Text variant="caption" className={`mt-1 ${colors[status]}`}>{message}</Text>;
+}
+
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { status: usernameStatus, message: usernameMessage } = useUsernameCheck(username);
+
   async function handleRegister() {
-    if (!email.trim() || !password || !confirmPassword) {
+    const trimmedUsername = username.toLowerCase().trim();
+
+    if (!email.trim() || !trimmedUsername || !password || !confirmPassword) {
       setError("Please fill in all fields.");
+      return;
+    }
+    if (usernameStatus === "taken") {
+      setError("That username is already taken. Please choose another.");
+      return;
+    }
+    if (usernameStatus === "invalid" || usernameStatus === "checking") {
+      setError("Please wait for username validation to complete.");
+      return;
+    }
+    if (usernameStatus !== "available") {
+      setError("Please enter a valid, available username.");
       return;
     }
     if (password !== confirmPassword) {
@@ -31,27 +115,50 @@ export default function RegisterScreen() {
     setError(null);
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
+    try {
+      // Step 1: Create Supabase auth user, storing username in metadata
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          data: { username: trimmedUsername },
+        },
+      });
 
-    setLoading(false);
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
 
-    if (authError) {
-      setError(authError.message);
-      return;
+      // Step 2: If we have an immediate session (email confirmation disabled),
+      // create the profile straight away.
+      if (authData.session) {
+        try {
+          await profilesApi.create(trimmedUsername);
+        } catch {
+          // Profile creation failure is non-fatal here — the root layout
+          // will retry on next sign-in using user_metadata.username.
+        }
+        // Auth state listener in _layout.tsx handles the redirect.
+        return;
+      }
+
+      // Step 3: Email confirmation required — ask user to verify.
+      Alert.alert(
+        "Check your email",
+        "We sent a confirmation link to your email. After verifying, sign in and your username will be set up automatically.",
+        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }],
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
-
-    Alert.alert(
-      "Verify your email",
-      "We sent a confirmation link to your email. Please verify before signing in.",
-      [{ text: "OK", onPress: () => router.replace("/(auth)/login") }],
-    );
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1 justify-center"
@@ -71,6 +178,19 @@ export default function RegisterScreen() {
             autoCapitalize="none"
             autoComplete="email"
           />
+
+          <View>
+            <Input
+              label="Username"
+              value={username}
+              onChangeText={(v) => setUsername(v.toLowerCase())}
+              placeholder="e.g. john_doe"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <UsernameStatusBadge status={usernameStatus} message={usernameMessage} />
+          </View>
+
           <Input
             label="Password"
             value={password}
@@ -90,7 +210,12 @@ export default function RegisterScreen() {
             <Text variant="caption" className="text-destructive">{error}</Text>
           )}
 
-          <Button onPress={handleRegister} loading={loading} className="mt-2">
+          <Button
+            onPress={handleRegister}
+            loading={loading}
+            disabled={usernameStatus === "checking" || usernameStatus === "taken" || usernameStatus === "invalid"}
+            className="mt-2"
+          >
             Create account
           </Button>
         </View>

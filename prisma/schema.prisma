@@ -6,6 +6,19 @@ datasource db {
   provider = "postgresql"
 }
 
+// Stores public profile data for each Supabase auth user.
+// userId maps 1:1 to the Supabase auth.users UUID.
+model Profile {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id")
+  username  String   @unique @db.VarChar(30)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([username])
+  @@map("profiles")
+}
+
 enum LocationType {
   HOME
   OFFICE
