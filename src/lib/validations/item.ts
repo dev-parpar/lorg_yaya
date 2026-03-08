@@ -1,0 +1,18 @@
+import { z } from "zod";
+
+export const createItemSchema = z.object({
+  cabinetId: z.string().uuid("cabinetId must be a valid UUID"),
+  shelfId: z.string().uuid("shelfId must be a valid UUID").optional(),
+  name: z.string().min(1, "Name is required").max(255),
+  description: z.string().max(2000).optional(),
+  quantity: z.number().int().min(1).default(1),
+  imageUrl: z.string().url("imageUrl must be a valid URL").optional(),
+  tags: z.array(z.string().max(50)).max(20).default([]),
+});
+
+export const updateItemSchema = createItemSchema
+  .omit({ cabinetId: true })
+  .partial();
+
+export type CreateItemInput = z.infer<typeof createItemSchema>;
+export type UpdateItemInput = z.infer<typeof updateItemSchema>;
