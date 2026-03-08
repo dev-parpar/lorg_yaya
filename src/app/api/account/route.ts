@@ -34,19 +34,20 @@ export async function DELETE() {
       data: { deletionRequestedAt: new Date() },
     });
 
-    // ── 2. Ban the Supabase auth user ────────────────────────────────────────
-    // Setting ban_duration prevents future sign-in attempts with these
-    // credentials. 876600h ≈ 100 years (effectively permanent).
-    // This is the correct primitive — session revocation only kills existing
-    // tokens but does not block new logins. Banning does both.
-    const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(
-      userId,
-      { ban_duration: "876600h" },
-    );
+    // ── 2. Hard-delete the Supabase auth user ────────────────────────────────
+    // Deleting the auth user:
+    //   - Immediately invalidates all active sessions (user cannot log in)
+    //   - Frees the email address so it can be used for a new registration
+    //   - Does NOT touch database rows — RLS is unaffected
+    // The profile row above is retained as a soft-delete audit record.
+    // This requires the service_role key, which is the intended use:
+    // auth.admin operations are explicitly excluded from RLS concerns.
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
-    if (banError) {
-      // Non-fatal: profile is already marked for deletion. Log and continue.
-      console.error("[DELETE /api/account] Failed to ban auth user:", banError.message);
+    if (deleteAuthError) {
+      // Non-fatal: profile is already marked for deletion.
+      // The user's API access is already blocked by the deletionRequestedAt guard.
+      console.error("[DELETE /api/account] Failed to delete auth user:", deleteAuthError.message);
     }
 
     return new NextResponse(null, { status: 204 });
