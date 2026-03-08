@@ -75,6 +75,7 @@ function UsernameStatusBadge({ status, message }: { status: UsernameStatus; mess
 }
 
 export default function RegisterScreen() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -85,9 +86,10 @@ export default function RegisterScreen() {
   const { status: usernameStatus, message: usernameMessage } = useUsernameCheck(username);
 
   async function handleRegister() {
+    const trimmedName = name.trim();
     const trimmedUsername = username.toLowerCase().trim();
 
-    if (!email.trim() || !trimmedUsername || !password || !confirmPassword) {
+    if (!trimmedName || !email.trim() || !trimmedUsername || !password || !confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
@@ -121,7 +123,7 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
         options: {
-          data: { username: trimmedUsername },
+          data: { full_name: trimmedName, username: trimmedUsername },
         },
       });
 
@@ -169,6 +171,15 @@ export default function RegisterScreen() {
         </View>
 
         <View className="gap-4">
+          <Input
+            label="Full Name"
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g. Jane Smith"
+            autoCapitalize="words"
+            autoComplete="name"
+          />
+
           <Input
             label="Email"
             value={email}
