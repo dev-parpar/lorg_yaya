@@ -23,9 +23,11 @@ interface ItemFormProps {
   locationId: string;
   shelves: Shelf[];
   existing?: Item;
+  /** Pre-selects a shelf when navigating from a shelf detail view */
+  preselectedShelfId?: string;
 }
 
-export function ItemForm({ cabinetId, locationId, shelves, existing }: ItemFormProps) {
+export function ItemForm({ cabinetId, locationId, shelves, existing, preselectedShelfId }: ItemFormProps) {
   const router = useRouter();
   const isEdit = !!existing;
 
@@ -33,7 +35,7 @@ export function ItemForm({ cabinetId, locationId, shelves, existing }: ItemFormP
   const [description, setDescription] = useState(existing?.description ?? "");
   const [quantity, setQuantity] = useState(existing?.quantity?.toString() ?? "1");
   const [imageUrl, setImageUrl] = useState(existing?.imageUrl ?? "");
-  const [shelfId, setShelfId] = useState(existing?.shelfId ?? "none");
+  const [shelfId, setShelfId] = useState(existing?.shelfId ?? preselectedShelfId ?? "none");
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(false);

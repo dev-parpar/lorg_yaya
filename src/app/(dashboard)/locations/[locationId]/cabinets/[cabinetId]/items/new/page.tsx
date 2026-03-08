@@ -7,13 +7,17 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ItemForm } from "@/components/items/item-form";
 import { ROUTES } from "@/lib/constants";
 
-type Props = { params: Promise<{ locationId: string; cabinetId: string }> };
+type Props = {
+  params: Promise<{ locationId: string; cabinetId: string }>;
+  searchParams: Promise<{ shelfId?: string }>;
+};
 
-export default async function NewItemPage({ params }: Props) {
+export default async function NewItemPage({ params, searchParams }: Props) {
   const userId = await getAuthenticatedUserId();
   if (!userId) redirect(ROUTES.LOGIN);
 
   const { locationId, cabinetId } = await params;
+  const { shelfId: preselectedShelfId } = await searchParams;
 
   const [cabinet, shelves] = await Promise.all([
     prisma.cabinet.findFirst({
@@ -39,7 +43,12 @@ export default async function NewItemPage({ params }: Props) {
         <span className="text-foreground">Add Item</span>
       </nav>
       <PageHeader title="Add Item" description={`Storing in: ${cabinet.name}`} />
-      <ItemForm cabinetId={cabinetId} locationId={locationId} shelves={shelves} />
+      <ItemForm
+        cabinetId={cabinetId}
+        locationId={locationId}
+        shelves={shelves}
+        preselectedShelfId={preselectedShelfId}
+      />
     </div>
   );
 }
