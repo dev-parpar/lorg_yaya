@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { FlatList, View, ActivityIndicator } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, Package2 } from "lucide-react-native";
@@ -12,12 +12,12 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 function useDebounce<T>(value: T, delay = 400): T {
   const [debounced, setDebounced] = useState(value);
-  const update = useCallback(() => {
+
+  useEffect(() => {
     const timer = setTimeout(() => setDebounced(value), delay);
     return () => clearTimeout(timer);
   }, [value, delay]);
 
-  useState(update);
   return debounced;
 }
 
