@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { HTTP_STATUS } from "@/lib/constants";
+import { ProfileStatus } from "@prisma/client";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
@@ -59,9 +60,9 @@ export async function POST(request: NextRequest) {
     } catch (createError) {
       if ((createError as { code?: string }).code !== "P2002") throw createError;
 
-      // P2002 — check whether the conflicting profile is soft-deleted
+      // P2002 — check whether the conflicting profile belongs to a DELETED account
       const conflicting = await prisma.profile.findFirst({
-        where: { username, deletionRequestedAt: { not: null } },
+        where: { username, status: ProfileStatus.DELETED },
       });
 
       if (!conflicting) {
