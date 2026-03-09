@@ -30,18 +30,19 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (authError) {
-      // Supabase returns "User is banned" for accounts that have been deleted.
-      // Map this to a user-friendly message — the user should not know the
-      // internal reason; from their perspective the account no longer exists.
-      const isBanned =
-        authError.message.toLowerCase().includes("banned") ||
-        authError.message.toLowerCase().includes("user not allowed");
+      const msg = authError.message.toLowerCase();
 
-      setError(
-        isBanned
-          ? "This account has been deleted and can no longer be accessed."
-          : authError.message,
-      );
+      if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
+        setError("Please check your email and click the confirmation link before signing in.");
+      } else if (msg.includes("invalid login credentials") || msg.includes("invalid_credentials")) {
+        setError("Incorrect email or password. Please try again.");
+      } else if (msg.includes("banned") || msg.includes("user not allowed")) {
+        // Supabase hard-deletes the auth user on account deletion, so this
+        // path is a safety net for any edge cases.
+        setError("This account no longer exists. Please register a new account.");
+      } else {
+        setError(authError.message);
+      }
     }
     // Auth state listener in _layout.tsx handles redirect on success
   }

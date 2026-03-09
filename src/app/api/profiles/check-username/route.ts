@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { ProfileStatus } from "@prisma/client";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
@@ -25,11 +26,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Only count active (non-deleted) profiles as "taken".
-  // Soft-deleted profiles have deletionRequestedAt set — their usernames
-  // are available for re-registration.
+  // Only ACTIVE profiles hold usernames. DELETED profiles are audit records —
+  // their usernames are free for re-registration.
   const existing = await prisma.profile.findFirst({
-    where: { username, deletionRequestedAt: null },
+    where: { username, status: ProfileStatus.ACTIVE },
   });
 
   return NextResponse.json({ available: !existing });

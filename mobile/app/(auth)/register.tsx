@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from "react-native";
+import { View, KeyboardAvoidingView, Platform, TouchableOpacity } from "react-native";
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/auth/supabase";
 import { profilesApi } from "@/lib/api/profiles";
@@ -146,12 +146,10 @@ export default function RegisterScreen() {
         return;
       }
 
-      // Step 3: Email confirmation required — ask user to verify.
-      Alert.alert(
-        "Check your email",
-        "We sent a confirmation link to your email. After verifying, sign in and your username will be set up automatically.",
-        [{ text: "OK", onPress: () => router.replace("/(auth)/login") }],
-      );
+      // Step 3: Email confirmation required — navigate to verify screen.
+      // The username is stored in user_metadata and will be used to create
+      // the profile automatically after the user confirms and signs in.
+      router.replace("/(auth)/verify-email");
     } catch (e) {
       setError((e as Error).message);
     } finally {

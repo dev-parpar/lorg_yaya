@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { prisma } from "@/lib/db/prisma";
+import { ProfileStatus } from "@prisma/client";
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -59,15 +60,16 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
 
   if (!userId) return null;
 
-  // ── Guard: reject accounts pending deletion (applies to both strategies) ──
-  // From the user's perspective the account is deleted. This blocks all
-  // further API access immediately after a deletion request is submitted.
+  // ── Guard: reject deleted accounts (applies to both auth strategies) ──────
+  // The Supabase auth user is hard-deleted on account deletion, so this is a
+  // safety net for any tokens that may still be in flight. DELETED profiles
+  // are audit records only — their userId is a dead reference.
   const profile = await prisma.profile.findUnique({
     where: { userId },
-    select: { deletionRequestedAt: true },
+    select: { status: true },
   });
 
-  if (profile?.deletionRequestedAt) return null;
+  if (profile?.status === ProfileStatus.DELETED) return null;
 
   return userId;
 }
