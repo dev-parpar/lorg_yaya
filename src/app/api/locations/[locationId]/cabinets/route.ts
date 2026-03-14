@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { parsePagination } from "@/lib/validations/pagination";
+import { getAccessibleLocation } from "@/lib/db/access";
 
 type Params = { params: Promise<{ locationId: string }> };
 
@@ -17,12 +13,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { locationId } = await params;
-
-    const location = await prisma.location.findFirst({
-      where: { id: locationId, deletedAt: null },
-    });
-    if (!location) throw new NotFoundError("Location");
-    if (location.userId !== userId) throw new ForbiddenError();
+    await getAccessibleLocation(locationId, userId);
 
     const { page, pageSize } = parsePagination(request.nextUrl.searchParams);
     const skip = (page - 1) * pageSize;

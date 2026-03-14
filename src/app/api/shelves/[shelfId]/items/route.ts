@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { parsePagination } from "@/lib/validations/pagination";
+import { getAccessibleShelf } from "@/lib/db/access";
 
 type Params = { params: Promise<{ shelfId: string }> };
 
@@ -17,13 +13,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { shelfId } = await params;
-
-    const shelf = await prisma.shelf.findFirst({
-      where: { id: shelfId, deletedAt: null },
-      include: { cabinet: { include: { location: true } } },
-    });
-    if (!shelf) throw new NotFoundError("Shelf");
-    if (shelf.cabinet.location.userId !== userId) throw new ForbiddenError();
+    await getAccessibleShelf(shelfId, userId);
 
     const { page, pageSize } = parsePagination(request.nextUrl.searchParams);
     const skip = (page - 1) * pageSize;

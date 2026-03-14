@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { createShelfSchema } from "@/lib/validations/shelf";
 import { HTTP_STATUS } from "@/lib/constants";
+import { assertCabinetAccess } from "@/lib/db/access";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,12 +14,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = createShelfSchema.parse(body);
 
-    const cabinet = await prisma.cabinet.findFirst({
-      where: { id: input.cabinetId, deletedAt: null },
-      include: { location: true },
-    });
-    if (!cabinet) throw new NotFoundError("Cabinet");
-    if (cabinet.location.userId !== userId) throw new ForbiddenError();
+    await assertCabinetAccess(input.cabinetId, userId);
 
     const shelf = await prisma.shelf.create({ data: input });
 
