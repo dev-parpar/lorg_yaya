@@ -1,18 +1,21 @@
 import { useState } from "react";
-import { View, Alert } from "react-native";
+import { View, Alert, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { profilesApi } from "@/lib/api/profiles";
+import { invitesApi } from "@/lib/api/invites";
 import { apiClient } from "@/lib/api/client";
 import { Screen } from "@/components/ui/screen";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Mail, LogOut, AtSign, Trash2 } from "lucide-react-native";
+import { User, Mail, LogOut, AtSign, Trash2, Bell, ChevronRight } from "lucide-react-native";
 
 export default function ProfileScreen() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const { data: profile } = useQuery({
@@ -20,6 +23,14 @@ export default function ProfileScreen() {
     queryFn: profilesApi.getMe,
     enabled: !!user,
   });
+
+  const { data: pendingInvites } = useQuery({
+    queryKey: ["invites"],
+    queryFn: invitesApi.list,
+    enabled: !!user,
+  });
+
+  const pendingCount = pendingInvites?.length ?? 0;
 
   function handleSignOut() {
     Alert.alert("Sign out", "Are you sure?", [
@@ -127,6 +138,35 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Card>
+
+      {/* ── Invites ─────────────────────────────────────────────────────── */}
+      <TouchableOpacity
+        onPress={() => router.push("/(tabs)/locations/invites")}
+        activeOpacity={0.7}
+        className="mb-4"
+      >
+        <Card>
+          <View className="flex-row items-center gap-3">
+            <View className="rounded-full bg-primary/10 p-2">
+              <Bell size={18} color="#2563EB" />
+            </View>
+            <View className="flex-1">
+              <Text variant="body" className="font-semibold">Location invites</Text>
+              <Text variant="caption">
+                {pendingCount > 0
+                  ? `${pendingCount} pending invite${pendingCount !== 1 ? "s" : ""}`
+                  : "No pending invites"}
+              </Text>
+            </View>
+            {pendingCount > 0 && (
+              <View className="bg-primary rounded-full w-5 h-5 items-center justify-center mr-1">
+                <Text className="text-white text-xs font-bold">{pendingCount}</Text>
+              </View>
+            )}
+            <ChevronRight size={16} color="#94A3B8" />
+          </View>
+        </Card>
+      </TouchableOpacity>
 
       {/* ── Actions ─────────────────────────────────────────────────────── */}
       <Button onPress={handleSignOut} variant="outline" className="mb-3">

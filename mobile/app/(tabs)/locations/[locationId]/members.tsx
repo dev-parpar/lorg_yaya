@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, FlatList, Alert, ActivityIndicator } from "react-native";
+import { View, FlatList, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Crown, User, UserPlus, UserMinus } from "lucide-react-native";
@@ -69,9 +69,14 @@ export default function MembersScreen() {
       queryClient.invalidateQueries({ queryKey: ["members", locationId] });
       setInviteUsername("");
       setInviteError(null);
-      Alert.alert("Invite sent", "The user will see your invite when they open the app.");
+      Alert.alert(
+        "Invite sent",
+        "They will see the invite in their Profile tab under 'Location invites'.",
+      );
     },
-    onError: (e: Error) => setInviteError(e.message),
+    onError: (e: Error) => {
+      Alert.alert("Could not send invite", e.message);
+    },
   });
 
   const removeMutation = useMutation({
