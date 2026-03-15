@@ -13,15 +13,19 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-interface MemberRowProps {
+function MemberRow({
+  username,
+  label,
+  isOwner,
+  canRemove,
+  onRemove,
+}: {
   username: string | null;
   label: string;
   isOwner: boolean;
   canRemove: boolean;
   onRemove: () => void;
-}
-
-function MemberRow({ username, label, isOwner, canRemove, onRemove }: MemberRowProps) {
+}) {
   return (
     <Card className="mb-2">
       <View className="flex-row items-center gap-3">
@@ -52,7 +56,6 @@ export default function MembersScreen() {
 
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteError, setInviteError] = useState<string | null>(null);
-  const [showInviteInput, setShowInviteInput] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["members", locationId],
@@ -65,7 +68,6 @@ export default function MembersScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["members", locationId] });
       setInviteUsername("");
-      setShowInviteInput(false);
       setInviteError(null);
       Alert.alert("Invite sent", "The user will see your invite when they open the app.");
     },
@@ -110,52 +112,70 @@ export default function MembersScreen() {
     inviteMutation.mutate(trimmed);
   }
 
-  return (
-    <Screen>
-      <PageHeader
-        title="Members"
-        subtitle="Who has access to this location"
-        showBack
-        onBack={() => router.back()}
-        onAdd={isOwner ? () => setShowInviteInput((v) => !v) : undefined}
-      />
-
-      {/* Invite input — owner only */}
-      {isOwner && showInviteInput && (
+  // Shown as FlatList header so it scrolls with the list and never nests
+  // inside a separate ScrollView.
+  const ListHeader = (
+    <>
+      {/* Invite section — visible immediately once ownership is confirmed */}
+      {isOwner && (
         <Card className="mb-4">
-          <Text variant="caption" className="font-semibold mb-3">Invite by username</Text>
+          <Text variant="caption" className="font-semibold mb-3 uppercase tracking-widest">
+            Invite a member
+          </Text>
           <View className="gap-3">
             <Input
-              placeholder="e.g. jane_doe"
+              placeholder="Enter username, e.g. jane_doe"
               value={inviteUsername}
-              onChangeText={setInviteUsername}
+              onChangeText={(v) => {
+                setInviteUsername(v);
+                setInviteError(null);
+              }}
               autoCapitalize="none"
               autoCorrect={false}
             />
             {inviteError && (
               <Text variant="caption" className="text-destructive">{inviteError}</Text>
             )}
-            <View className="flex-row gap-2">
-              <Button
-                onPress={handleSendInvite}
-                loading={inviteMutation.isPending}
-                className="flex-1"
-              >
-                <View className="flex-row items-center gap-2">
-                  <UserPlus size={16} color="#fff" />
-                  <Text className="text-white font-semibold">Send invite</Text>
-                </View>
-              </Button>
-              <Button
-                onPress={() => { setShowInviteInput(false); setInviteError(null); }}
-                variant="outline"
-              >
-                Cancel
-              </Button>
-            </View>
+            <Button
+              onPress={handleSendInvite}
+              loading={inviteMutation.isPending}
+              disabled={!inviteUsername.trim()}
+            >
+              <View className="flex-row items-center gap-2">
+                <UserPlus size={16} color="#fff" />
+                <Text className="text-white font-semibold">Send invite</Text>
+              </View>
+            </Button>
           </View>
         </Card>
       )}
+
+      {/* Section title */}
+      <Text variant="caption" className="font-semibold uppercase tracking-widest mb-3">
+        Current members
+      </Text>
+
+      {/* Owner row always first */}
+      {data?.owner && (
+        <MemberRow
+          username={data.owner.username}
+          label="Owner"
+          isOwner
+          canRemove={false}
+          onRemove={() => {}}
+        />
+      )}
+    </>
+  );
+
+  return (
+    // scroll={false} prevents nesting FlatList inside a ScrollView
+    <Screen scroll={false}>
+      <PageHeader
+        title="Members"
+        subtitle="Who has access to this location"
+        showBack
+      />
 
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
@@ -165,25 +185,16 @@ export default function MembersScreen() {
         <FlatList
           data={data?.members ?? []}
           keyExtractor={(item) => item.id}
-          ListHeaderComponent={
-            data?.owner ? (
-              <MemberRow
-                username={data.owner.username}
-                label="Owner"
-                isOwner
-                canRemove={false}
-                onRemove={() => {}}
-              />
-            ) : null
-          }
+          ListHeaderComponent={ListHeader}
           renderItem={({ item }) => {
             const isSelf = item.userId === user?.id;
             const canRemove = isOwner || isSelf;
-            const label = item.status === "PENDING"
-              ? "Invited — pending"
-              : item.status === "ACCEPTED"
-              ? "Editor"
-              : item.status;
+            const label =
+              item.status === "PENDING"
+                ? "Invited — pending"
+                : item.status === "ACCEPTED"
+                  ? "Editor"
+                  : item.status;
             return (
               <MemberRow
                 username={item.username}
@@ -195,8 +206,8 @@ export default function MembersScreen() {
             );
           }}
           ListEmptyComponent={
-            <Text variant="muted" className="text-center mt-6">
-              No members yet. {isOwner ? "Use the + button to invite someone." : ""}
+            <Text variant="muted" className="text-center mt-2">
+              No members yet.{isOwner ? " Use the form above to invite someone." : ""}
             </Text>
           }
           showsVerticalScrollIndicator={false}

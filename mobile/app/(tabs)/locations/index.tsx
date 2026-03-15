@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, View, Modal, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, Building2, UserPlus, Users, Bell } from "lucide-react-native";
+import { Home, Building2, Users, Bell } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
 import { invitesApi } from "@/lib/api/invites";
 import type { LocationWithCounts } from "@/types";
@@ -19,13 +19,11 @@ function LocationCard({
   location,
   onPress,
   onDelete,
-  onInvite,
   onMembers,
 }: {
   location: LocationWithCounts;
   onPress: () => void;
   onDelete: () => void;
-  onInvite: () => void;
   onMembers: () => void;
 }) {
   const Icon = location.type === "HOME" ? Home : Building2;
@@ -58,17 +56,10 @@ function LocationCard({
         </View>
 
         <View className="flex-row items-center gap-1">
-          {/* Members button — visible to all */}
+          {/* Members — tapping opens the members screen where invites are managed */}
           <TouchableOpacity onPress={onMembers} className="p-2">
             <Users size={16} color="#64748B" />
           </TouchableOpacity>
-
-          {/* Invite button — owner only */}
-          {isOwner && (
-            <TouchableOpacity onPress={onInvite} className="p-2">
-              <UserPlus size={16} color="#2563EB" />
-            </TouchableOpacity>
-          )}
 
           {/* Delete — owner only */}
           {isOwner && (
@@ -183,7 +174,6 @@ export default function LocationsScreen() {
             location={item}
             onPress={() => router.push(`/(tabs)/locations/${item.id}`)}
             onDelete={() => confirmDelete(item.id, item.name)}
-            onInvite={() => router.push(`/(tabs)/locations/${item.id}/members`)}
             onMembers={() => router.push(`/(tabs)/locations/${item.id}/members`)}
           />
         )}
