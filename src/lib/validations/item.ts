@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+const ITEM_TYPE_VALUES = [
+  "FOOD",
+  "GAME",
+  "SPORTS",
+  "ELECTRONICS",
+  "UTENSILS",
+  "CUTLERY",
+  "FIRST_AID",
+  "CLOTHES",
+  "ACCESSORIES",
+  "SHOES",
+  "OTHER",
+] as const;
+
 export const createItemSchema = z.object({
   cabinetId: z.string().uuid("cabinetId must be a valid UUID"),
   shelfId: z.string().uuid("shelfId must be a valid UUID").optional(),
@@ -8,6 +22,7 @@ export const createItemSchema = z.object({
   quantity: z.number().int().min(1).default(1),
   imageUrl: z.string().url("imageUrl must be a valid URL").optional(),
   tags: z.array(z.string().max(50)).max(20).default([]),
+  itemType: z.enum(ITEM_TYPE_VALUES).default("OTHER"),
 });
 
 export const updateItemSchema = createItemSchema

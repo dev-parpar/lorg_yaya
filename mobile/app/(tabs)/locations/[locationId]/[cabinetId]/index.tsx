@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { SectionList, View, Modal, Alert, ActivityIndicator, TouchableOpacity, FlatList } from "react-native";
+import { SectionList, View, Modal, Alert, ActivityIndicator, TouchableOpacity, FlatList, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layers, Package2, ChevronRight, ArrowRightLeft } from "lucide-react-native";
 import { cabinetsApi } from "@/lib/api/cabinets";
 import { itemsApi } from "@/lib/api/items";
-import type { ShelfWithCounts, Item } from "@/types";
+import type { ShelfWithCounts, Item, ItemType } from "@/types";
+import { ITEM_TYPE_LABELS, ALL_ITEM_TYPES } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -15,9 +16,10 @@ import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+type SectionItem = ShelfWithCounts | Item;
 type Section =
-  | { key: "shelves"; title: string; data: ShelfWithCounts[] }
-  | { key: "items"; title: string; data: Item[] };
+  | { key: "shelves"; title: string; data: SectionItem[] }
+  | { key: "items"; title: string; data: SectionItem[] };
 
 export default function CabinetDetailScreen() {
   const { locationId, cabinetId, shelf: shelfFilter } = useLocalSearchParams<{
@@ -38,6 +40,7 @@ export default function CabinetDetailScreen() {
   const [shelfPosition, setShelfPosition] = useState("");
   const [itemName, setItemName] = useState("");
   const [itemQty, setItemQty] = useState("1");
+  const [itemType, setItemType] = useState<ItemType>("OTHER");
   const [formError, setFormError] = useState<string | null>(null);
 
   // Item being assigned
@@ -74,6 +77,7 @@ export default function CabinetDetailScreen() {
       setShowItemForm(false);
       setItemName("");
       setItemQty("1");
+      setItemType("OTHER");
       setFormError(null);
     },
     onError: (e: Error) => setFormError(e.message),
@@ -103,6 +107,7 @@ export default function CabinetDetailScreen() {
       cabinetId,
       name: itemName.trim(),
       quantity: parseInt(itemQty, 10) || 1,
+      itemType,
     });
   }
 
@@ -145,10 +150,10 @@ export default function CabinetDetailScreen() {
     : (items ?? []).filter((i) => !i.shelfId);
 
   const sections: Section[] = shelfFilter
-    ? [{ key: "items", title: "Items on this shelf", data: items ?? [] }]
+    ? [{ key: "items", title: "Items on this shelf", data: (items ?? []) as SectionItem[] }]
     : [
-        { key: "shelves", title: "Shelves", data: shelves ?? [] },
-        { key: "items", title: "Unassigned Items", data: unassignedItems },
+        { key: "shelves", title: "Shelves", data: (shelves ?? []) as SectionItem[] },
+        { key: "items", title: "Unassigned Items", data: unassignedItems as SectionItem[] },
       ];
 
   const pageTitle = shelfFilter
@@ -183,7 +188,7 @@ export default function CabinetDetailScreen() {
         )}
         renderItem={({ item, section }) => {
           if (section.key === "shelves") {
-            const shelf = item as ShelfWithCounts;
+            const shelf = item as unknown as ShelfWithCounts;
             return (
               <Card
                 onPress={() => router.push(`/(tabs)/locations/${locationId}/${cabinetId}?shelf=${shelf.id}`)}
@@ -201,14 +206,21 @@ export default function CabinetDetailScreen() {
             );
           }
 
-          const itm = item as Item;
+          const itm = item as unknown as Item;
           return (
             <Card className="mb-2">
               <View className="flex-row items-center gap-3">
                 <Package2 size={18} color="#64748B" />
                 <View className="flex-1">
                   <Text variant="body" className="font-medium">{itm.name}</Text>
-                  <Text variant="caption">Qty: {itm.quantity}</Text>
+                  <View className="flex-row items-center gap-2 mt-0.5 flex-wrap">
+                    <Text variant="caption">Qty: {itm.quantity}</Text>
+                    <View className="bg-primary/10 rounded-full px-2 py-0.5">
+                      <Text variant="caption" className="text-primary font-medium">
+                        {ITEM_TYPE_LABELS[itm.itemType] ?? itm.itemType}
+                      </Text>
+                    </View>
+                  </View>
                   {itm.shelfId && (
                     <Text variant="caption" className="text-primary mt-0.5">
                       {shelves?.find((s) => s.id === itm.shelfId)?.name ?? "On a shelf"}
@@ -309,11 +321,40 @@ export default function CabinetDetailScreen() {
               keyboardType="number-pad"
               placeholder="1"
             />
+
+            {/* Type picker */}
+            <View>
+              <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
+                <View className="flex-row gap-2 px-1">
+                  {ALL_ITEM_TYPES.map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setItemType(t)}
+                      className={`rounded-full px-3 py-1.5 border ${
+                        itemType === t
+                          ? "bg-primary border-primary"
+                          : "bg-transparent border-border"
+                      }`}
+                    >
+                      <Text
+                        className={`text-sm font-medium ${
+                          itemType === t ? "text-white" : "text-foreground"
+                        }`}
+                      >
+                        {ITEM_TYPE_LABELS[t]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
             {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
             <Button onPress={handleCreateItem} loading={createItemMutation.isPending} className="mt-2">
               Add Item
             </Button>
-            <Button onPress={() => { setShowItemForm(false); setFormError(null); }} variant="ghost">
+            <Button onPress={() => { setShowItemForm(false); setFormError(null); setItemType("OTHER"); }} variant="ghost">
               Cancel
             </Button>
           </View>

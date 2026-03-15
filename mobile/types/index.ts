@@ -1,6 +1,35 @@
 // ── Domain types (mirrors the web app's Prisma output) ───────────────────────
 
 export type LocationType = "HOME" | "OFFICE";
+
+export type ItemType =
+  | "FOOD"
+  | "GAME"
+  | "SPORTS"
+  | "ELECTRONICS"
+  | "UTENSILS"
+  | "CUTLERY"
+  | "FIRST_AID"
+  | "CLOTHES"
+  | "ACCESSORIES"
+  | "SHOES"
+  | "OTHER";
+
+export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
+  FOOD: "Food",
+  GAME: "Game",
+  SPORTS: "Sports",
+  ELECTRONICS: "Electronics",
+  UTENSILS: "Utensils",
+  CUTLERY: "Cutlery",
+  FIRST_AID: "First Aid",
+  CLOTHES: "Clothes",
+  ACCESSORIES: "Accessories",
+  SHOES: "Shoes",
+  OTHER: "Other",
+};
+
+export const ALL_ITEM_TYPES = Object.keys(ITEM_TYPE_LABELS) as ItemType[];
 export type LocationRole = "OWNER" | "EDITOR";
 export type InviteStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "REVOKED";
 
@@ -86,6 +115,7 @@ export interface Item {
   name: string;
   description: string | null;
   quantity: number;
+  itemType: ItemType;
   imageUrl: string | null;
   tags: string[];
   createdAt: string;
