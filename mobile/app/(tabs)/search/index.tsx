@@ -5,6 +5,8 @@ import { Search as SearchIcon, Package2 } from "lucide-react-native";
 import { itemsApi } from "@/lib/api/items";
 import type { ItemWithLocation } from "@/types";
 import { Screen } from "@/components/ui/screen";
+import { PageHeader } from "@/components/ui/page-header";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -69,8 +71,8 @@ export default function SearchScreen() {
 
   return (
     <Screen scroll={false}>
-      <View className="mb-4 pt-2">
-        <Text variant="h2" className="mb-4">Search</Text>
+      <PageHeader title="Search" rightElement={<NotificationBell />} />
+      <View className="mb-4">
         <Input
           value={query}
           onChangeText={setQuery}

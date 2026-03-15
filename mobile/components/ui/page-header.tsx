@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { View, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Plus } from "lucide-react-native";
@@ -7,10 +8,19 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  /** Renders a + button on the right. Use rightElement for more complex right-side content. */
   onAdd?: () => void;
+  /** Arbitrary content rendered on the right side. Takes precedence over onAdd. */
+  rightElement?: ReactNode;
 }
 
-export function PageHeader({ title, subtitle, showBack = false, onAdd }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  subtitle,
+  showBack = false,
+  onAdd,
+  rightElement,
+}: PageHeaderProps) {
   const router = useRouter();
 
   return (
@@ -30,7 +40,9 @@ export function PageHeader({ title, subtitle, showBack = false, onAdd }: PageHea
           {subtitle && <Text variant="caption">{subtitle}</Text>}
         </View>
       </View>
-      {onAdd && (
+
+      {/* rightElement takes precedence; fall back to onAdd */}
+      {rightElement ?? (onAdd ? (
         <TouchableOpacity
           onPress={onAdd}
           className="bg-primary rounded-full p-2.5"
@@ -38,7 +50,7 @@ export function PageHeader({ title, subtitle, showBack = false, onAdd }: PageHea
         >
           <Plus size={20} color="#fff" />
         </TouchableOpacity>
-      )}
+      ) : null)}
     </View>
   );
 }

@@ -1,21 +1,20 @@
 import { useState } from "react";
-import { View, Alert, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Alert } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { profilesApi } from "@/lib/api/profiles";
-import { invitesApi } from "@/lib/api/invites";
 import { apiClient } from "@/lib/api/client";
 import { Screen } from "@/components/ui/screen";
+import { PageHeader } from "@/components/ui/page-header";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { User, Mail, LogOut, AtSign, Trash2, Bell, ChevronRight } from "lucide-react-native";
+import { User, Mail, LogOut, AtSign, Trash2 } from "lucide-react-native";
 
 export default function ProfileScreen() {
   const { user } = useAuthStore();
-  const router = useRouter();
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const { data: profile } = useQuery({
@@ -23,14 +22,6 @@ export default function ProfileScreen() {
     queryFn: profilesApi.getMe,
     enabled: !!user,
   });
-
-  const { data: pendingInvites } = useQuery({
-    queryKey: ["invites"],
-    queryFn: invitesApi.list,
-    enabled: !!user,
-  });
-
-  const pendingCount = pendingInvites?.length ?? 0;
 
   function handleSignOut() {
     Alert.alert("Sign out", "Are you sure?", [
@@ -44,33 +35,23 @@ export default function ProfileScreen() {
   }
 
   function handleDeleteAccount() {
-    // Step 1 — warn the user clearly
     Alert.alert(
       "Delete account",
       "This will permanently delete your account and all your inventory data — locations, cabinets, shelves, and items. This cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Continue",
-          style: "destructive",
-          onPress: confirmDeleteAccount,
-        },
+        { text: "Continue", style: "destructive", onPress: confirmDeleteAccount },
       ],
     );
   }
 
   function confirmDeleteAccount() {
-    // Step 2 — require explicit final confirmation
     Alert.alert(
       "Are you absolutely sure?",
-      "Type-to-confirm is not available on mobile. Tap \"Yes, delete\" only if you are certain. All data will be gone permanently.",
+      'Tap "Yes, delete" only if you are certain. All data will be gone permanently.',
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Yes, delete",
-          style: "destructive",
-          onPress: executeDeleteAccount,
-        },
+        { text: "Yes, delete", style: "destructive", onPress: executeDeleteAccount },
       ],
     );
   }
@@ -79,24 +60,18 @@ export default function ProfileScreen() {
     setDeletingAccount(true);
     try {
       await apiClient.delete("/api/account");
-      // Sign out locally — the auth listener in _layout.tsx redirects to login
       await supabase.auth.signOut();
     } catch (e) {
       setDeletingAccount(false);
-      Alert.alert(
-        "Deletion failed",
-        (e as Error).message ?? "Something went wrong. Please try again.",
-      );
+      Alert.alert("Deletion failed", (e as Error).message ?? "Something went wrong. Please try again.");
     }
   }
 
   return (
     <Screen>
-      <View className="pt-2 mb-6">
-        <Text variant="h2">Profile</Text>
-      </View>
+      <PageHeader title="Profile" rightElement={<NotificationBell />} />
 
-      {/* ── User card ───────────────────────────────────────────────────── */}
+      {/* ── User card ─────────────────────────────────────────────────── */}
       <Card className="mb-4">
         <View className="items-center py-4">
           <View className="rounded-full bg-primary/10 p-5 mb-3">
@@ -118,7 +93,7 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      {/* ── Account details ─────────────────────────────────────────────── */}
+      {/* ── Account details ───────────────────────────────────────────── */}
       <Card className="mb-6">
         <View className="gap-2">
           <Text variant="caption" className="font-semibold uppercase tracking-widest mb-1">
@@ -139,36 +114,7 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      {/* ── Invites ─────────────────────────────────────────────────────── */}
-      <TouchableOpacity
-        onPress={() => router.push("/(tabs)/locations/invites")}
-        activeOpacity={0.7}
-        className="mb-4"
-      >
-        <Card>
-          <View className="flex-row items-center gap-3">
-            <View className="rounded-full bg-primary/10 p-2">
-              <Bell size={18} color="#2563EB" />
-            </View>
-            <View className="flex-1">
-              <Text variant="body" className="font-semibold">Location invites</Text>
-              <Text variant="caption">
-                {pendingCount > 0
-                  ? `${pendingCount} pending invite${pendingCount !== 1 ? "s" : ""}`
-                  : "No pending invites"}
-              </Text>
-            </View>
-            {pendingCount > 0 && (
-              <View className="bg-primary rounded-full w-5 h-5 items-center justify-center mr-1">
-                <Text className="text-white text-xs font-bold">{pendingCount}</Text>
-              </View>
-            )}
-            <ChevronRight size={16} color="#94A3B8" />
-          </View>
-        </Card>
-      </TouchableOpacity>
-
-      {/* ── Actions ─────────────────────────────────────────────────────── */}
+      {/* ── Actions ───────────────────────────────────────────────────── */}
       <Button onPress={handleSignOut} variant="outline" className="mb-3">
         <View className="flex-row items-center gap-2">
           <LogOut size={16} color="#0F172A" />

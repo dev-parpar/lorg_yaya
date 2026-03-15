@@ -2,12 +2,12 @@ import { useState } from "react";
 import { FlatList, View, Modal, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, Building2, Users, Bell } from "lucide-react-native";
+import { Home, Building2, Users, Plus } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
-import { invitesApi } from "@/lib/api/invites";
 import type { LocationWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -56,12 +56,9 @@ function LocationCard({
         </View>
 
         <View className="flex-row items-center gap-1">
-          {/* Members — tapping opens the members screen where invites are managed */}
           <TouchableOpacity onPress={onMembers} className="p-2">
             <Users size={16} color="#64748B" />
           </TouchableOpacity>
-
-          {/* Delete — owner only */}
           {isOwner && (
             <Button onPress={onDelete} variant="ghost" className="px-2">
               <Text className="text-destructive text-xs">Delete</Text>
@@ -91,11 +88,6 @@ export default function LocationsScreen() {
     queryFn: locationsApi.list,
   });
 
-  const { data: pendingInvites } = useQuery({
-    queryKey: ["invites"],
-    queryFn: invitesApi.list,
-  });
-
   const createMutation = useMutation({
     mutationFn: locationsApi.create,
     onSuccess: () => {
@@ -117,7 +109,11 @@ export default function LocationsScreen() {
       return;
     }
     setFormError(null);
-    createMutation.mutate({ name: form.name.trim(), type: form.type, address: form.address.trim() || undefined });
+    createMutation.mutate({
+      name: form.name.trim(),
+      type: form.type,
+      address: form.address.trim() || undefined,
+    });
   }
 
   function confirmDelete(id: string, name: string) {
@@ -127,10 +123,23 @@ export default function LocationsScreen() {
     ]);
   }
 
+  const headerRight = (
+    <View className="flex-row items-center gap-1">
+      <NotificationBell />
+      <TouchableOpacity
+        onPress={() => setShowForm(true)}
+        className="bg-primary rounded-full p-2.5 ml-1"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
+        <Plus size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+
   if (isLoading) {
     return (
       <Screen scroll={false}>
-        <PageHeader title="Locations" />
+        <PageHeader title="Locations" rightElement={headerRight} />
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#2563EB" />
         </View>
@@ -141,30 +150,15 @@ export default function LocationsScreen() {
   if (error) {
     return (
       <Screen scroll={false}>
-        <PageHeader title="Locations" />
+        <PageHeader title="Locations" rightElement={headerRight} />
         <ErrorView message={(error as Error).message} onRetry={refetch} />
       </Screen>
     );
   }
 
-  const pendingCount = pendingInvites?.length ?? 0;
-
   return (
     <Screen scroll={false}>
-      <PageHeader title="Locations" subtitle="Your homes & offices" onAdd={() => setShowForm(true)} />
-
-      {/* Pending invites banner */}
-      {pendingCount > 0 && (
-        <TouchableOpacity
-          onPress={() => router.push("/(tabs)/locations/invites")}
-          className="flex-row items-center gap-3 bg-primary/10 rounded-xl px-4 py-3 mb-3"
-        >
-          <Bell size={18} color="#2563EB" />
-          <Text className="text-primary font-semibold flex-1">
-            {pendingCount} pending invite{pendingCount !== 1 ? "s" : ""} — tap to view
-          </Text>
-        </TouchableOpacity>
-      )}
+      <PageHeader title="Locations" subtitle="Your homes & offices" rightElement={headerRight} />
 
       <FlatList
         data={locations}
@@ -230,7 +224,10 @@ export default function LocationsScreen() {
             <Button onPress={handleCreate} loading={createMutation.isPending} className="mt-2">
               Create Location
             </Button>
-            <Button onPress={() => { setShowForm(false); setFormError(null); }} variant="ghost">
+            <Button
+              onPress={() => { setShowForm(false); setFormError(null); }}
+              variant="ghost"
+            >
               Cancel
             </Button>
           </View>
