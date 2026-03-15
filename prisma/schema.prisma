@@ -38,6 +38,20 @@ enum LocationType {
   OFFICE
 }
 
+// Role a member holds on a shared location.
+// Only EDITOR exists now; VIEWER can be added in a future iteration.
+enum MemberRole {
+  EDITOR
+}
+
+// Lifecycle of an invite from owner to another user.
+enum InviteStatus {
+  PENDING   // invite sent, awaiting response
+  ACCEPTED  // member has access
+  DECLINED  // invitee declined — no access granted
+  REVOKED   // owner removed the member
+}
+
 model Location {
   id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId    String       @map("user_id")
@@ -49,10 +63,31 @@ model Location {
   deletedAt DateTime?    @map("deleted_at")
 
   cabinets Cabinet[]
+  members  LocationMember[]
 
   @@index([userId])
   @@index([deletedAt])
   @@map("locations")
+}
+
+// Join table granting a non-owner user access to a Location.
+// The owner is always Location.userId — no row needed for them.
+model LocationMember {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId  String       @map("location_id") @db.Uuid
+  userId      String       @map("user_id")    // invited user's Supabase userId
+  invitedBy   String       @map("invited_by") // owner's userId at time of invite
+  role        MemberRole   @default(EDITOR)
+  status      InviteStatus @default(PENDING)
+  invitedAt   DateTime     @default(now()) @map("invited_at")
+  respondedAt DateTime?    @map("responded_at")
+
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([locationId, userId])
+  @@index([userId, status])
+  @@index([locationId, status])
+  @@map("location_members")
 }
 
 model Cabinet {

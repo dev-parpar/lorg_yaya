@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { FlatList, View, Modal, Alert } from "react-native";
+import { FlatList, View, Modal, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, Building2 } from "lucide-react-native";
+import { Home, Building2, Users, Bell } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
+import { invitesApi } from "@/lib/api/invites";
 import type { LocationWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -13,36 +14,60 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ActivityIndicator } from "react-native";
 
 function LocationCard({
   location,
   onPress,
   onDelete,
+  onMembers,
 }: {
   location: LocationWithCounts;
   onPress: () => void;
   onDelete: () => void;
+  onMembers: () => void;
 }) {
   const Icon = location.type === "HOME" ? Home : Building2;
+  const isOwner = location.role === "OWNER";
+
   return (
     <Card onPress={onPress} className="mb-3">
       <View className="flex-row items-center gap-3">
         <View className="rounded-xl bg-primary/10 p-3">
           <Icon size={22} color="#2563EB" />
         </View>
+
         <View className="flex-1">
-          <Text variant="h3">{location.name}</Text>
+          <View className="flex-row items-center gap-2">
+            <Text variant="h3">{location.name}</Text>
+            {!isOwner && (
+              <View className="bg-amber-100 rounded px-1.5 py-0.5">
+                <Text className="text-amber-700 text-xs font-medium">Shared</Text>
+              </View>
+            )}
+          </View>
           <Text variant="caption">
             {location.type} · {location._count.cabinets} cabinet{location._count.cabinets !== 1 ? "s" : ""}
           </Text>
           {location.address && (
-            <Text variant="caption" className="text-muted-foreground mt-0.5">{location.address}</Text>
+            <Text variant="caption" className="text-muted-foreground mt-0.5">
+              {location.address}
+            </Text>
           )}
         </View>
-        <Button onPress={onDelete} variant="ghost" className="px-2">
-          <Text className="text-destructive text-xs">Delete</Text>
-        </Button>
+
+        <View className="flex-row items-center gap-1">
+          {/* Members — tapping opens the members screen where invites are managed */}
+          <TouchableOpacity onPress={onMembers} className="p-2">
+            <Users size={16} color="#64748B" />
+          </TouchableOpacity>
+
+          {/* Delete — owner only */}
+          {isOwner && (
+            <Button onPress={onDelete} variant="ghost" className="px-2">
+              <Text className="text-destructive text-xs">Delete</Text>
+            </Button>
+          )}
+        </View>
       </View>
     </Card>
   );
@@ -64,6 +89,11 @@ export default function LocationsScreen() {
   const { data: locations, isLoading, error, refetch } = useQuery({
     queryKey: ["locations"],
     queryFn: locationsApi.list,
+  });
+
+  const { data: pendingInvites } = useQuery({
+    queryKey: ["invites"],
+    queryFn: invitesApi.list,
   });
 
   const createMutation = useMutation({
@@ -117,9 +147,24 @@ export default function LocationsScreen() {
     );
   }
 
+  const pendingCount = pendingInvites?.length ?? 0;
+
   return (
     <Screen scroll={false}>
       <PageHeader title="Locations" subtitle="Your homes & offices" onAdd={() => setShowForm(true)} />
+
+      {/* Pending invites banner */}
+      {pendingCount > 0 && (
+        <TouchableOpacity
+          onPress={() => router.push("/(tabs)/locations/invites")}
+          className="flex-row items-center gap-3 bg-primary/10 rounded-xl px-4 py-3 mb-3"
+        >
+          <Bell size={18} color="#2563EB" />
+          <Text className="text-primary font-semibold flex-1">
+            {pendingCount} pending invite{pendingCount !== 1 ? "s" : ""} — tap to view
+          </Text>
+        </TouchableOpacity>
+      )}
 
       <FlatList
         data={locations}
@@ -129,6 +174,7 @@ export default function LocationsScreen() {
             location={item}
             onPress={() => router.push(`/(tabs)/locations/${item.id}`)}
             onDelete={() => confirmDelete(item.id, item.name)}
+            onMembers={() => router.push(`/(tabs)/locations/${item.id}/members`)}
           />
         )}
         ListEmptyComponent={

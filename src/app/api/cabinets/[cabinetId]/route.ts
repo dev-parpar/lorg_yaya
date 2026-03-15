@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { updateCabinetSchema } from "@/lib/validations/cabinet";
+import { getAccessibleCabinet } from "@/lib/db/access";
 
 type Params = { params: Promise<{ cabinetId: string }> };
-
-async function getOwnedCabinet(cabinetId: string, userId: string) {
-  const cabinet = await prisma.cabinet.findFirst({
-    where: { id: cabinetId, deletedAt: null },
-    include: { location: true },
-  });
-  if (!cabinet) throw new NotFoundError("Cabinet");
-  if (cabinet.location.userId !== userId) throw new ForbiddenError();
-  return cabinet;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
@@ -27,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { cabinetId } = await params;
-    const cabinet = await getOwnedCabinet(cabinetId, userId);
+    const cabinet = await getAccessibleCabinet(cabinetId, userId);
 
     return NextResponse.json({ data: cabinet });
   } catch (error) {
@@ -41,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { cabinetId } = await params;
-    await getOwnedCabinet(cabinetId, userId);
+    await getAccessibleCabinet(cabinetId, userId);
 
     const body = await request.json();
     const input = updateCabinetSchema.parse(body);
@@ -63,7 +49,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { cabinetId } = await params;
-    await getOwnedCabinet(cabinetId, userId);
+    await getAccessibleCabinet(cabinetId, userId);
 
     await prisma.cabinet.update({
       where: { id: cabinetId },

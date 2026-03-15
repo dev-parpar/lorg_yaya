@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { createCabinetSchema } from "@/lib/validations/cabinet";
 import { HTTP_STATUS } from "@/lib/constants";
+import { assertLocationAccess } from "@/lib/db/access";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,12 +14,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const input = createCabinetSchema.parse(body);
 
-    // Verify the user owns the target location
-    const location = await prisma.location.findFirst({
-      where: { id: input.locationId, deletedAt: null },
-    });
-    if (!location) throw new NotFoundError("Location");
-    if (location.userId !== userId) throw new ForbiddenError();
+    // Verify the user is the owner or an accepted member
+    await assertLocationAccess(input.locationId, userId);
 
     const cabinet = await prisma.cabinet.create({ data: input });
 

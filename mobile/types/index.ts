@@ -1,6 +1,8 @@
 // ── Domain types (mirrors the web app's Prisma output) ───────────────────────
 
 export type LocationType = "HOME" | "OFFICE";
+export type LocationRole = "OWNER" | "EDITOR";
+export type InviteStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "REVOKED";
 
 export interface Location {
   id: string;
@@ -15,6 +17,38 @@ export interface Location {
 
 export interface LocationWithCounts extends Location {
   _count: { cabinets: number };
+  // Injected by GET /api/locations — caller's role on this location
+  role: LocationRole;
+}
+
+export interface LocationMember {
+  id: string;
+  locationId: string;
+  userId: string;
+  invitedBy: string;
+  role: "EDITOR";
+  status: InviteStatus;
+  invitedAt: string;
+  respondedAt: string | null;
+  username: string | null;
+}
+
+export interface Invite {
+  id: string;
+  locationId: string;
+  userId: string;
+  invitedBy: string;
+  invitedByUsername: string | null;
+  role: "EDITOR";
+  status: InviteStatus;
+  invitedAt: string;
+  respondedAt: string | null;
+  location: {
+    id: string;
+    name: string;
+    type: LocationType;
+    address: string | null;
+  };
 }
 
 export interface Cabinet {

@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError, NotFoundError } from "@/lib/errors";
 import { updateItemSchema } from "@/lib/validations/item";
+import { getAccessibleItem } from "@/lib/db/access";
 
 type Params = { params: Promise<{ itemId: string }> };
-
-async function getOwnedItem(itemId: string, userId: string) {
-  const item = await prisma.item.findFirst({
-    where: { id: itemId, deletedAt: null },
-    include: { cabinet: { include: { location: true } }, shelf: true },
-  });
-  if (!item) throw new NotFoundError("Item");
-  if (item.cabinet.location.userId !== userId) throw new ForbiddenError();
-  return item;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
@@ -27,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { itemId } = await params;
-    const item = await getOwnedItem(itemId, userId);
+    const item = await getAccessibleItem(itemId, userId);
 
     return NextResponse.json({ data: item });
   } catch (error) {
@@ -41,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { itemId } = await params;
-    const existing = await getOwnedItem(itemId, userId);
+    const existing = await getAccessibleItem(itemId, userId);
 
     const body = await request.json();
     const input = updateItemSchema.parse(body);
@@ -75,7 +61,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { itemId } = await params;
-    await getOwnedItem(itemId, userId);
+    await getAccessibleItem(itemId, userId);
 
     await prisma.item.update({
       where: { id: itemId },

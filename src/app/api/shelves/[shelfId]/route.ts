@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import {
-  handleRouteError,
-  UnauthorizedError,
-  NotFoundError,
-  ForbiddenError,
-} from "@/lib/errors";
+import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { updateShelfSchema } from "@/lib/validations/shelf";
+import { getAccessibleShelf } from "@/lib/db/access";
 
 type Params = { params: Promise<{ shelfId: string }> };
-
-async function getOwnedShelf(shelfId: string, userId: string) {
-  const shelf = await prisma.shelf.findFirst({
-    where: { id: shelfId, deletedAt: null },
-    include: { cabinet: { include: { location: true } } },
-  });
-  if (!shelf) throw new NotFoundError("Shelf");
-  if (shelf.cabinet.location.userId !== userId) throw new ForbiddenError();
-  return shelf;
-}
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
@@ -27,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { shelfId } = await params;
-    const shelf = await getOwnedShelf(shelfId, userId);
+    const shelf = await getAccessibleShelf(shelfId, userId);
 
     return NextResponse.json({ data: shelf });
   } catch (error) {
@@ -41,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { shelfId } = await params;
-    await getOwnedShelf(shelfId, userId);
+    await getAccessibleShelf(shelfId, userId);
 
     const body = await request.json();
     const input = updateShelfSchema.parse(body);
@@ -63,7 +49,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { shelfId } = await params;
-    await getOwnedShelf(shelfId, userId);
+    await getAccessibleShelf(shelfId, userId);
 
     await prisma.shelf.update({
       where: { id: shelfId },
