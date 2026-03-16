@@ -18,6 +18,9 @@ export const cabinetsApi = {
   createShelf: (data: { cabinetId: string; name: string; position?: number }) =>
     apiClient.post<Shelf>("/api/shelves", data),
 
+  updateShelf: (id: string, data: Partial<{ name: string; position: number }>) =>
+    apiClient.patch<Shelf>(`/api/shelves/${id}`, data),
+
   getItems: (cabinetId: string, shelfFilter?: string) => {
     const query = shelfFilter ? `?shelf=${shelfFilter}` : "";
     return apiClient.get<Item[]>(`/api/cabinets/${cabinetId}/items${query}`);

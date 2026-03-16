@@ -1,8 +1,17 @@
 import { useState } from "react";
-import { SectionList, View, Modal, Alert, ActivityIndicator, TouchableOpacity, FlatList, ScrollView } from "react-native";
+import {
+  SectionList,
+  View,
+  Modal,
+  Alert,
+  ActivityIndicator,
+  TouchableOpacity,
+  FlatList,
+  ScrollView,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layers, Package2, ChevronRight, ArrowRightLeft } from "lucide-react-native";
+import { Layers, Package2, ChevronRight, ArrowRightLeft, Pencil } from "lucide-react-native";
 import { cabinetsApi } from "@/lib/api/cabinets";
 import { itemsApi } from "@/lib/api/items";
 import type { ShelfWithCounts, Item, ItemType } from "@/types";
@@ -30,20 +39,31 @@ export default function CabinetDetailScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Form visibility
+  // Shelf create form
   const [showShelfForm, setShowShelfForm] = useState(false);
-  const [showItemForm, setShowItemForm] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-
-  // Form field state
   const [shelfName, setShelfName] = useState("");
   const [shelfPosition, setShelfPosition] = useState("");
+
+  // Shelf edit form
+  const [editingShelf, setEditingShelf] = useState<ShelfWithCounts | null>(null);
+  const [editShelfName, setEditShelfName] = useState("");
+  const [editShelfPosition, setEditShelfPosition] = useState("");
+
+  // Item create form
+  const [showItemForm, setShowItemForm] = useState(false);
   const [itemName, setItemName] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [itemType, setItemType] = useState<ItemType>("OTHER");
-  const [formError, setFormError] = useState<string | null>(null);
 
-  // Item being assigned
+  // Item edit form
+  const [editingItem, setEditingItem] = useState<Item | null>(null);
+  const [editItemName, setEditItemName] = useState("");
+  const [editItemQty, setEditItemQty] = useState("1");
+  const [editItemType, setEditItemType] = useState<ItemType>("OTHER");
+
+  // Shared form error + assign modal
+  const [formError, setFormError] = useState<string | null>(null);
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [itemToAssign, setItemToAssign] = useState<Item | null>(null);
 
   const { data: shelves, isLoading: shelvesLoading, error: shelvesError, refetch: refetchShelves } = useQuery({
@@ -70,6 +90,17 @@ export default function CabinetDetailScreen() {
     onError: (e: Error) => setFormError(e.message),
   });
 
+  const updateShelfMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string; position?: number } }) =>
+      cabinetsApi.updateShelf(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
+      setEditingShelf(null);
+      setFormError(null);
+    },
+    onError: (e: Error) => setFormError(e.message),
+  });
+
   const createItemMutation = useMutation({
     mutationFn: itemsApi.create,
     onSuccess: () => {
@@ -78,6 +109,17 @@ export default function CabinetDetailScreen() {
       setItemName("");
       setItemQty("1");
       setItemType("OTHER");
+      setFormError(null);
+    },
+    onError: (e: Error) => setFormError(e.message),
+  });
+
+  const updateItemMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { name: string; quantity: number; itemType: ItemType } }) =>
+      itemsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
+      setEditingItem(null);
       setFormError(null);
     },
     onError: (e: Error) => setFormError(e.message),
@@ -103,12 +145,40 @@ export default function CabinetDetailScreen() {
   function handleCreateItem() {
     if (!itemName.trim()) { setFormError("Item name is required."); return; }
     setFormError(null);
-    createItemMutation.mutate({
-      cabinetId,
-      name: itemName.trim(),
-      quantity: parseInt(itemQty, 10) || 1,
-      itemType,
+    createItemMutation.mutate({ cabinetId, name: itemName.trim(), quantity: parseInt(itemQty, 10) || 1, itemType });
+  }
+
+  function openEditItem(itm: Item) {
+    setEditItemName(itm.name);
+    setEditItemQty(String(itm.quantity));
+    setEditItemType(itm.itemType);
+    setFormError(null);
+    setEditingItem(itm);
+  }
+
+  function handleUpdateItem() {
+    if (!editingItem) return;
+    if (!editItemName.trim()) { setFormError("Name is required."); return; }
+    setFormError(null);
+    updateItemMutation.mutate({
+      id: editingItem.id,
+      data: { name: editItemName.trim(), quantity: parseInt(editItemQty, 10) || 1, itemType: editItemType },
     });
+  }
+
+  function openEditShelf(shelf: ShelfWithCounts) {
+    setEditShelfName(shelf.name);
+    setEditShelfPosition(String(shelf.position));
+    setFormError(null);
+    setEditingShelf(shelf);
+  }
+
+  function handleUpdateShelf() {
+    if (!editingShelf) return;
+    if (!editShelfName.trim()) { setFormError("Name is required."); return; }
+    setFormError(null);
+    const position = editShelfPosition.trim() ? parseInt(editShelfPosition.trim(), 10) : editingShelf.position;
+    updateShelfMutation.mutate({ id: editingShelf.id, data: { name: editShelfName.trim(), position } });
   }
 
   function confirmDeleteItem(id: string, name: string) {
@@ -145,9 +215,7 @@ export default function CabinetDetailScreen() {
     );
   }
 
-  const unassignedItems = shelfFilter
-    ? (items ?? [])
-    : (items ?? []).filter((i) => !i.shelfId);
+  const unassignedItems = shelfFilter ? (items ?? []) : (items ?? []).filter((i) => !i.shelfId);
 
   const sections: Section[] = shelfFilter
     ? [{ key: "items", title: "Items on this shelf", data: (items ?? []) as SectionItem[] }]
@@ -166,14 +234,16 @@ export default function CabinetDetailScreen() {
     <Screen scroll={false}>
       <PageHeader
         title={pageTitle}
-        subtitle={shelfFilter ? `${items?.length ?? 0} item(s)` : `${shelves?.length ?? 0} shelves · ${items?.length ?? 0} items`}
+        subtitle={shelfFilter
+          ? `${items?.length ?? 0} item(s)`
+          : `${shelves?.length ?? 0} shelves · ${items?.length ?? 0} items`}
         showBack
         onAdd={() => setShowItemForm(true)}
       />
 
       <SectionList
         sections={sections}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
+        keyExtractor={(item, index) => `${(item as { id: string }).id}-${index}`}
         renderSectionHeader={({ section }) => (
           <View className="flex-row items-center justify-between mb-2 mt-4">
             <Text variant="caption" className="font-semibold uppercase tracking-widest">
@@ -198,8 +268,11 @@ export default function CabinetDetailScreen() {
                   <Layers size={18} color="#2563EB" />
                   <View className="flex-1">
                     <Text variant="body" className="font-medium">{shelf.name}</Text>
-                    <Text variant="caption">{shelf._count.items} item(s)</Text>
+                    <Text variant="caption">{shelf._count.items} item(s) · position {shelf.position}</Text>
                   </View>
+                  <TouchableOpacity onPress={() => openEditShelf(shelf)} className="p-2">
+                    <Pencil size={15} color="#64748B" />
+                  </TouchableOpacity>
                   <ChevronRight size={16} color="#94A3B8" />
                 </View>
               </Card>
@@ -227,12 +300,11 @@ export default function CabinetDetailScreen() {
                     </Text>
                   )}
                 </View>
-                <View className="flex-row gap-1">
-                  {/* Show assign button only when there are shelves and item is unassigned */}
+                <View className="flex-row gap-1 items-center">
                   {!itm.shelfId && hasShelves && (
                     <TouchableOpacity
                       onPress={() => openAssignModal(itm)}
-                      className="rounded-lg bg-primary/10 px-2 py-1.5 mr-1"
+                      className="rounded-lg bg-primary/10 px-2 py-1.5"
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <View className="flex-row items-center gap-1">
@@ -241,6 +313,9 @@ export default function CabinetDetailScreen() {
                       </View>
                     </TouchableOpacity>
                   )}
+                  <TouchableOpacity onPress={() => openEditItem(itm)} className="p-2">
+                    <Pencil size={15} color="#64748B" />
+                  </TouchableOpacity>
                   <Button onPress={() => confirmDeleteItem(itm.id, itm.name)} variant="ghost" className="px-2">
                     <Text className="text-destructive text-xs">Del</Text>
                   </Button>
@@ -262,7 +337,6 @@ export default function CabinetDetailScreen() {
 
       {/* ── Assign to shelf modal ─────────────────────────────────────── */}
       <Modal visible={showAssignModal} animationType="slide" presentationStyle="pageSheet">
-        {/* scroll={false} — FlatList below owns the scrolling, not Screen */}
         <Screen scroll={false}>
           <PageHeader title="Assign to Shelf" showBack={false} />
           <Text variant="muted" className="mb-4">
@@ -273,11 +347,7 @@ export default function CabinetDetailScreen() {
             keyExtractor={(s) => s.id}
             renderItem={({ item: shelf }) => (
               <Card
-                onPress={() => {
-                  if (itemToAssign) {
-                    assignShelfMutation.mutate({ itemId: itemToAssign.id, shelfId: shelf.id });
-                  }
-                }}
+                onPress={() => itemToAssign && assignShelfMutation.mutate({ itemId: itemToAssign.id, shelfId: shelf.id })}
                 className="mb-3"
               >
                 <View className="flex-row items-center gap-3">
@@ -286,23 +356,15 @@ export default function CabinetDetailScreen() {
                     <Text variant="body" className="font-medium">{shelf.name}</Text>
                     <Text variant="caption">{shelf._count.items} item(s) already here</Text>
                   </View>
-                  {assignShelfMutation.isPending && (
-                    <ActivityIndicator size="small" color="#2563EB" />
-                  )}
+                  {assignShelfMutation.isPending && <ActivityIndicator size="small" color="#2563EB" />}
                 </View>
               </Card>
             )}
-            ListEmptyComponent={
-              <Text variant="muted" className="text-center mt-8">No shelves in this cabinet yet.</Text>
-            }
+            ListEmptyComponent={<Text variant="muted" className="text-center mt-8">No shelves yet.</Text>}
             contentContainerStyle={{ paddingBottom: 16 }}
             showsVerticalScrollIndicator={false}
           />
-          <Button
-            onPress={() => { setShowAssignModal(false); setItemToAssign(null); }}
-            variant="ghost"
-            className="mt-4"
-          >
+          <Button onPress={() => { setShowAssignModal(false); setItemToAssign(null); }} variant="ghost" className="mt-4">
             Cancel
           </Button>
         </Screen>
@@ -314,15 +376,7 @@ export default function CabinetDetailScreen() {
           <PageHeader title="New Item" showBack={false} />
           <View className="gap-4">
             <Input label="Name" value={itemName} onChangeText={setItemName} placeholder="e.g. Power Drill" />
-            <Input
-              label="Quantity"
-              value={itemQty}
-              onChangeText={setItemQty}
-              keyboardType="number-pad"
-              placeholder="1"
-            />
-
-            {/* Type picker */}
+            <Input label="Quantity" value={itemQty} onChangeText={setItemQty} keyboardType="number-pad" placeholder="1" />
             <View>
               <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
@@ -331,17 +385,9 @@ export default function CabinetDetailScreen() {
                     <TouchableOpacity
                       key={t}
                       onPress={() => setItemType(t)}
-                      className={`rounded-full px-3 py-1.5 border ${
-                        itemType === t
-                          ? "bg-primary border-primary"
-                          : "bg-transparent border-border"
-                      }`}
+                      className={`rounded-full px-3 py-1.5 border ${itemType === t ? "bg-primary border-primary" : "bg-transparent border-border"}`}
                     >
-                      <Text
-                        className={`text-sm font-medium ${
-                          itemType === t ? "text-white" : "text-foreground"
-                        }`}
-                      >
+                      <Text className={`text-sm font-medium ${itemType === t ? "text-white" : "text-foreground"}`}>
                         {ITEM_TYPE_LABELS[t]}
                       </Text>
                     </TouchableOpacity>
@@ -349,14 +395,41 @@ export default function CabinetDetailScreen() {
                 </View>
               </ScrollView>
             </View>
-
             {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
-            <Button onPress={handleCreateItem} loading={createItemMutation.isPending} className="mt-2">
-              Add Item
-            </Button>
-            <Button onPress={() => { setShowItemForm(false); setFormError(null); setItemType("OTHER"); }} variant="ghost">
-              Cancel
-            </Button>
+            <Button onPress={handleCreateItem} loading={createItemMutation.isPending} className="mt-2">Add Item</Button>
+            <Button onPress={() => { setShowItemForm(false); setFormError(null); setItemType("OTHER"); }} variant="ghost">Cancel</Button>
+          </View>
+        </Screen>
+      </Modal>
+
+      {/* ── Edit item modal ───────────────────────────────────────────── */}
+      <Modal visible={!!editingItem} animationType="slide" presentationStyle="pageSheet">
+        <Screen>
+          <PageHeader title="Edit Item" showBack={false} />
+          <View className="gap-4">
+            <Input label="Name" value={editItemName} onChangeText={setEditItemName} placeholder="e.g. Power Drill" />
+            <Input label="Quantity" value={editItemQty} onChangeText={setEditItemQty} keyboardType="number-pad" placeholder="1" />
+            <View>
+              <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-1">
+                <View className="flex-row gap-2 px-1">
+                  {ALL_ITEM_TYPES.map((t) => (
+                    <TouchableOpacity
+                      key={t}
+                      onPress={() => setEditItemType(t)}
+                      className={`rounded-full px-3 py-1.5 border ${editItemType === t ? "bg-primary border-primary" : "bg-transparent border-border"}`}
+                    >
+                      <Text className={`text-sm font-medium ${editItemType === t ? "text-white" : "text-foreground"}`}>
+                        {ITEM_TYPE_LABELS[t]}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+            {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
+            <Button onPress={handleUpdateItem} loading={updateItemMutation.isPending} className="mt-2">Save Changes</Button>
+            <Button onPress={() => { setEditingItem(null); setFormError(null); }} variant="ghost">Cancel</Button>
           </View>
         </Screen>
       </Modal>
@@ -366,12 +439,7 @@ export default function CabinetDetailScreen() {
         <Screen>
           <PageHeader title="New Shelf" showBack={false} />
           <View className="gap-4">
-            <Input
-              label="Shelf Name"
-              value={shelfName}
-              onChangeText={setShelfName}
-              placeholder="e.g. Top Shelf"
-            />
+            <Input label="Shelf Name" value={shelfName} onChangeText={setShelfName} placeholder="e.g. Top Shelf" />
             <Input
               label="Shelf Number / Position"
               value={shelfPosition}
@@ -384,26 +452,36 @@ export default function CabinetDetailScreen() {
               onPress={() => {
                 if (!shelfName.trim()) { setFormError("Name is required."); return; }
                 setFormError(null);
-                const position = shelfPosition.trim()
-                  ? parseInt(shelfPosition.trim(), 10)
-                  : (shelves?.length ?? 0) + 1;
+                const position = shelfPosition.trim() ? parseInt(shelfPosition.trim(), 10) : (shelves?.length ?? 0) + 1;
                 createShelfMutation.mutate({ cabinetId, name: shelfName.trim(), position });
               }}
               loading={createShelfMutation.isPending}
             >
               Create Shelf
             </Button>
-            <Button
-              onPress={() => {
-                setShowShelfForm(false);
-                setShelfName("");
-                setShelfPosition("");
-                setFormError(null);
-              }}
-              variant="ghost"
-            >
+            <Button onPress={() => { setShowShelfForm(false); setShelfName(""); setShelfPosition(""); setFormError(null); }} variant="ghost">
               Cancel
             </Button>
+          </View>
+        </Screen>
+      </Modal>
+
+      {/* ── Edit shelf modal ──────────────────────────────────────────── */}
+      <Modal visible={!!editingShelf} animationType="slide" presentationStyle="pageSheet">
+        <Screen>
+          <PageHeader title="Edit Shelf" showBack={false} />
+          <View className="gap-4">
+            <Input label="Shelf Name" value={editShelfName} onChangeText={setEditShelfName} placeholder="e.g. Top Shelf" />
+            <Input
+              label="Position"
+              value={editShelfPosition}
+              onChangeText={setEditShelfPosition}
+              keyboardType="number-pad"
+              placeholder="e.g. 1"
+            />
+            {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
+            <Button onPress={handleUpdateShelf} loading={updateShelfMutation.isPending} className="mt-2">Save Changes</Button>
+            <Button onPress={() => { setEditingShelf(null); setFormError(null); }} variant="ghost">Cancel</Button>
           </View>
         </Screen>
       </Modal>
