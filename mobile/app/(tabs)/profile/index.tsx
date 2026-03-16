@@ -100,12 +100,6 @@ export default function ProfileScreen() {
             Account
           </Text>
           <View className="flex-row justify-between items-center py-1">
-            <Text variant="body">User ID</Text>
-            <Text variant="caption" className="max-w-[180px] text-right" numberOfLines={1}>
-              {user?.id}
-            </Text>
-          </View>
-          <View className="flex-row justify-between items-center py-1">
             <Text variant="body">Member since</Text>
             <Text variant="caption">
               {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
