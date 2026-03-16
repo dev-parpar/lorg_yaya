@@ -24,4 +24,8 @@ export const profilesApi = {
   /** Create a profile for the current user. */
   create: (username: string) =>
     apiClient.post<Profile>("/api/profiles", { username }),
+
+  /** Update the current user's username. */
+  updateUsername: (username: string) =>
+    apiClient.patch<Profile>("/api/profiles", { username }),
 };
