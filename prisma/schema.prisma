@@ -38,6 +38,20 @@ enum LocationType {
   OFFICE
 }
 
+enum ItemType {
+  FOOD
+  GAME
+  SPORTS
+  ELECTRONICS
+  UTENSILS
+  CUTLERY
+  FIRST_AID
+  CLOTHES
+  ACCESSORIES
+  SHOES
+  OTHER
+}
+
 // Role a member holds on a shared location.
 // Only EDITOR exists now; VIEWER can be added in a future iteration.
 enum MemberRole {
@@ -132,6 +146,7 @@ model Item {
   name         String    @db.VarChar(255)
   description  String?   @db.Text
   quantity     Int       @default(1)
+  itemType     ItemType  @default(OTHER) @map("item_type")
   imageUrl     String?   @map("image_url") @db.Text
   tags         String[]  @default([])
   // searchVector is maintained by a DB trigger — see migrations

@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { Item, ItemWithLocation } from "@/types";
+import type { Item, ItemWithLocation, ItemType } from "@/types";
 
 export interface CreateItemPayload {
   cabinetId: string;
@@ -9,6 +9,7 @@ export interface CreateItemPayload {
   quantity?: number;
   imageUrl?: string;
   tags?: string[];
+  itemType?: ItemType;
 }
 
 export const itemsApi = {
