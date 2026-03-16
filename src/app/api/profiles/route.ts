@@ -8,13 +8,15 @@ import { ProfileStatus } from "@prisma/client";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
-const createProfileSchema = z.object({
-  username: z
-    .string()
-    .toLowerCase()
-    .trim()
-    .regex(USERNAME_REGEX, "Username must be 3–30 characters: lowercase letters, numbers, and underscores only."),
-});
+const usernameField = z
+  .string()
+  .toLowerCase()
+  .trim()
+  .regex(USERNAME_REGEX, "Username must be 3–30 characters: lowercase letters, numbers, and underscores only.");
+
+const createProfileSchema = z.object({ username: usernameField });
+
+const updateProfileSchema = z.object({ username: usernameField });
 
 /**
  * GET /api/profiles/me — returns the current user's profile.
@@ -82,5 +84,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data: profile }, { status: HTTP_STATUS.CREATED });
   } catch (error) {
     return handleRouteError(error, "POST /api/profiles");
+  }
+}
+
+/**
+ * PATCH /api/profiles — update the current user's username.
+ */
+export async function PATCH(request: NextRequest) {
+  try {
+    const userId = await getAuthenticatedUserId();
+    if (!userId) throw new UnauthorizedError();
+
+    const body = await request.json();
+    const { username } = updateProfileSchema.parse(body);
+
+    // Allow keeping the same username (no-op conflict check)
+    const conflict = await prisma.profile.findFirst({
+      where: { username, status: ProfileStatus.ACTIVE, NOT: { userId } },
+    });
+    if (conflict) {
+      return NextResponse.json(
+        { error: "That username is already taken. Please choose another." },
+        { status: 409 },
+      );
+    }
+
+    const updated = await prisma.profile.update({
+      where: { userId },
+      data: { username },
+    });
+
+    return NextResponse.json({ data: updated });
+  } catch (error) {
+    return handleRouteError(error, "PATCH /api/profiles");
   }
 }
