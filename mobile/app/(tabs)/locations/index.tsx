@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FlatList, View, Modal, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Home, Building2, Users, Plus } from "lucide-react-native";
+import { Home, Building2, Users, Plus, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
 import type { LocationWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -15,14 +15,22 @@ import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+interface LocationFormState {
+  name: string;
+  type: "HOME" | "OFFICE";
+  address: string;
+}
+
 function LocationCard({
   location,
   onPress,
+  onEdit,
   onDelete,
   onMembers,
 }: {
   location: LocationWithCounts;
   onPress: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   onMembers: () => void;
 }) {
@@ -59,6 +67,9 @@ function LocationCard({
           <TouchableOpacity onPress={onMembers} className="p-2">
             <Users size={16} color="#64748B" />
           </TouchableOpacity>
+          <TouchableOpacity onPress={onEdit} className="p-2">
+            <Pencil size={16} color="#64748B" />
+          </TouchableOpacity>
           {isOwner && (
             <Button onPress={onDelete} variant="ghost" className="px-2">
               <Text className="text-destructive text-xs">Delete</Text>
@@ -70,18 +81,19 @@ function LocationCard({
   );
 }
 
-interface LocationFormState {
-  name: string;
-  type: "HOME" | "OFFICE";
-  address: string;
-}
-
 export default function LocationsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<LocationFormState>({ name: "", type: "HOME", address: "" });
-  const [formError, setFormError] = useState<string | null>(null);
+
+  // Create form
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState<LocationFormState>({ name: "", type: "HOME", address: "" });
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  // Edit form
+  const [editingLocation, setEditingLocation] = useState<LocationWithCounts | null>(null);
+  const [editForm, setEditForm] = useState<LocationFormState>({ name: "", type: "HOME", address: "" });
+  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: locations, isLoading, error, refetch } = useQuery({
     queryKey: ["locations"],
@@ -92,10 +104,22 @@ export default function LocationsScreen() {
     mutationFn: locationsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["locations"] });
-      setShowForm(false);
-      setForm({ name: "", type: "HOME", address: "" });
+      setShowCreateForm(false);
+      setCreateForm({ name: "", type: "HOME", address: "" });
+      setCreateError(null);
     },
-    onError: (e: Error) => setFormError(e.message),
+    onError: (e: Error) => setCreateError(e.message),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<LocationFormState> }) =>
+      locationsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      setEditingLocation(null);
+      setEditError(null);
+    },
+    onError: (e: Error) => setEditError(e.message),
   });
 
   const deleteMutation = useMutation({
@@ -104,15 +128,28 @@ export default function LocationsScreen() {
   });
 
   function handleCreate() {
-    if (!form.name.trim()) {
-      setFormError("Name is required.");
-      return;
-    }
-    setFormError(null);
+    if (!createForm.name.trim()) { setCreateError("Name is required."); return; }
+    setCreateError(null);
     createMutation.mutate({
-      name: form.name.trim(),
-      type: form.type,
-      address: form.address.trim() || undefined,
+      name: createForm.name.trim(),
+      type: createForm.type,
+      address: createForm.address.trim() || undefined,
+    });
+  }
+
+  function openEdit(loc: LocationWithCounts) {
+    setEditForm({ name: loc.name, type: loc.type as "HOME" | "OFFICE", address: loc.address ?? "" });
+    setEditError(null);
+    setEditingLocation(loc);
+  }
+
+  function handleUpdate() {
+    if (!editingLocation) return;
+    if (!editForm.name.trim()) { setEditError("Name is required."); return; }
+    setEditError(null);
+    updateMutation.mutate({
+      id: editingLocation.id,
+      data: { name: editForm.name.trim(), type: editForm.type, address: editForm.address.trim() || undefined },
     });
   }
 
@@ -127,7 +164,7 @@ export default function LocationsScreen() {
     <View className="flex-row items-center gap-1">
       <NotificationBell />
       <TouchableOpacity
-        onPress={() => setShowForm(true)}
+        onPress={() => setShowCreateForm(true)}
         className="bg-primary rounded-full p-2.5 ml-1"
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
@@ -167,6 +204,7 @@ export default function LocationsScreen() {
           <LocationCard
             location={item}
             onPress={() => router.push(`/(tabs)/locations/${item.id}`)}
+            onEdit={() => openEdit(item)}
             onDelete={() => confirmDelete(item.id, item.name)}
             onMembers={() => router.push(`/(tabs)/locations/${item.id}/members`)}
           />
@@ -176,34 +214,32 @@ export default function LocationsScreen() {
             icon={Home}
             title="No locations yet"
             description="Add your first home or office to start organizing."
-            action={<Button onPress={() => setShowForm(true)}>Add Location</Button>}
+            action={<Button onPress={() => setShowCreateForm(true)}>Add Location</Button>}
           />
         }
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
       />
 
-      {/* Create location modal */}
-      <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
+      {/* ── Create location modal ─────────────────────────────────────── */}
+      <Modal visible={showCreateForm} animationType="slide" presentationStyle="pageSheet">
         <Screen>
           <PageHeader title="New Location" showBack={false} />
-
           <View className="gap-4">
             <Input
               label="Name"
-              value={form.name}
-              onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
+              value={createForm.name}
+              onChangeText={(v) => setCreateForm((f) => ({ ...f, name: v }))}
               placeholder="e.g. Main House"
             />
-
             <View>
               <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
               <View className="flex-row gap-3">
                 {(["HOME", "OFFICE"] as const).map((t) => (
                   <Button
                     key={t}
-                    variant={form.type === t ? "primary" : "outline"}
-                    onPress={() => setForm((f) => ({ ...f, type: t }))}
+                    variant={createForm.type === t ? "primary" : "outline"}
+                    onPress={() => setCreateForm((f) => ({ ...f, type: t }))}
                     className="flex-1"
                   >
                     {t === "HOME" ? "Home" : "Office"}
@@ -211,23 +247,60 @@ export default function LocationsScreen() {
                 ))}
               </View>
             </View>
-
             <Input
               label="Address (optional)"
-              value={form.address}
-              onChangeText={(v) => setForm((f) => ({ ...f, address: v }))}
+              value={createForm.address}
+              onChangeText={(v) => setCreateForm((f) => ({ ...f, address: v }))}
               placeholder="123 Main St"
             />
-
-            {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
-
+            {createError && <Text variant="caption" className="text-destructive">{createError}</Text>}
             <Button onPress={handleCreate} loading={createMutation.isPending} className="mt-2">
               Create Location
             </Button>
-            <Button
-              onPress={() => { setShowForm(false); setFormError(null); }}
-              variant="ghost"
-            >
+            <Button onPress={() => { setShowCreateForm(false); setCreateError(null); }} variant="ghost">
+              Cancel
+            </Button>
+          </View>
+        </Screen>
+      </Modal>
+
+      {/* ── Edit location modal ───────────────────────────────────────── */}
+      <Modal visible={!!editingLocation} animationType="slide" presentationStyle="pageSheet">
+        <Screen>
+          <PageHeader title="Edit Location" showBack={false} />
+          <View className="gap-4">
+            <Input
+              label="Name"
+              value={editForm.name}
+              onChangeText={(v) => setEditForm((f) => ({ ...f, name: v }))}
+              placeholder="e.g. Main House"
+            />
+            <View>
+              <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
+              <View className="flex-row gap-3">
+                {(["HOME", "OFFICE"] as const).map((t) => (
+                  <Button
+                    key={t}
+                    variant={editForm.type === t ? "primary" : "outline"}
+                    onPress={() => setEditForm((f) => ({ ...f, type: t }))}
+                    className="flex-1"
+                  >
+                    {t === "HOME" ? "Home" : "Office"}
+                  </Button>
+                ))}
+              </View>
+            </View>
+            <Input
+              label="Address (optional)"
+              value={editForm.address}
+              onChangeText={(v) => setEditForm((f) => ({ ...f, address: v }))}
+              placeholder="123 Main St"
+            />
+            {editError && <Text variant="caption" className="text-destructive">{editError}</Text>}
+            <Button onPress={handleUpdate} loading={updateMutation.isPending} className="mt-2">
+              Save Changes
+            </Button>
+            <Button onPress={() => { setEditingLocation(null); setEditError(null); }} variant="ghost">
               Cancel
             </Button>
           </View>
