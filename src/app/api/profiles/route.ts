@@ -5,6 +5,7 @@ import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { HTTP_STATUS } from "@/lib/constants";
 import { ProfileStatus } from "@prisma/client";
+import { generateSignedUrl, deleteStorageFile } from "@/lib/storage/sign";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
@@ -16,7 +17,10 @@ const usernameField = z
 
 const createProfileSchema = z.object({ username: usernameField });
 
-const updateProfileSchema = z.object({ username: usernameField });
+const updateProfileSchema = z.object({
+  username: usernameField.optional(),
+  avatarPath: z.string().nullable().optional(),
+});
 
 /**
  * GET /api/profiles/me — returns the current user's profile.
@@ -96,22 +100,39 @@ export async function PATCH(request: NextRequest) {
     if (!userId) throw new UnauthorizedError();
 
     const body = await request.json();
-    const { username } = updateProfileSchema.parse(body);
+    const { username, avatarPath } = updateProfileSchema.parse(body);
 
-    // Allow keeping the same username (no-op conflict check)
-    const conflict = await prisma.profile.findFirst({
-      where: { username, status: ProfileStatus.ACTIVE, NOT: { userId } },
-    });
-    if (conflict) {
-      return NextResponse.json(
-        { error: "That username is already taken. Please choose another." },
-        { status: 409 },
-      );
+    const updateData: Record<string, unknown> = {};
+
+    // Username update with uniqueness check
+    if (username !== undefined) {
+      const conflict = await prisma.profile.findFirst({
+        where: { username, status: ProfileStatus.ACTIVE, NOT: { userId } },
+      });
+      if (conflict) {
+        return NextResponse.json(
+          { error: "That username is already taken. Please choose another." },
+          { status: 409 },
+        );
+      }
+      updateData.username = username;
+    }
+
+    // Avatar update
+    if (avatarPath === null) {
+      const existing = await prisma.profile.findUnique({ where: { userId } });
+      if (existing?.avatarPath) await deleteStorageFile("avatars", existing.avatarPath);
+      updateData.avatarPath = null;
+      updateData.signedAvatarUrl = null;
+    } else if (avatarPath !== undefined) {
+      const signedAvatarUrl = await generateSignedUrl("avatars", avatarPath);
+      updateData.avatarPath = avatarPath;
+      updateData.signedAvatarUrl = signedAvatarUrl;
     }
 
     const updated = await prisma.profile.update({
       where: { userId },
-      data: { username },
+      data: updateData,
     });
 
     return NextResponse.json({ data: updated });

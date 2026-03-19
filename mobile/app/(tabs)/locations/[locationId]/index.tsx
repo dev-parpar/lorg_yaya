@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { FlatList, View, Modal, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
+import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
 import { cabinetsApi } from "@/lib/api/cabinets";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { EntityPhoto } from "@/components/ui/entity-photo";
 import type { CabinetWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,6 +18,92 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+// ── Edit cabinet modal — owns its own useImageUpload instance ────────────────
+
+function EditCabinetModal({
+  cabinet,
+  onClose,
+}: {
+  cabinet: CabinetWithCounts;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const { locationId } = useLocalSearchParams<{ locationId: string }>();
+
+  const [name, setName] = useState(cabinet.name);
+  const [desc, setDesc] = useState(cabinet.description ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [localSignedUrl, setLocalSignedUrl] = useState<string | null | undefined>(
+    cabinet.signedImageUrl,
+  );
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Parameters<typeof cabinetsApi.update>[1]) =>
+      cabinetsApi.update(cabinet.id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] }),
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const { showActionSheet, isUploading } = useImageUpload({
+    bucket: "cabinets",
+    buildPath: () => `${user!.id}/${cabinet.id}`,
+    onUpload: async (imagePath) => {
+      const updated = await cabinetsApi.update(cabinet.id, { imagePath });
+      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
+      setLocalSignedUrl(updated.signedImageUrl);
+    },
+    onRemove: async () => {
+      const updated = await cabinetsApi.update(cabinet.id, { imagePath: null });
+      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
+      setLocalSignedUrl(updated.signedImageUrl);
+    },
+  });
+
+  function handleSave() {
+    if (!name.trim()) { setError("Name is required."); return; }
+    setError(null);
+    updateMutation.mutate(
+      { name: name.trim(), description: desc.trim() || undefined },
+      { onSuccess: () => onClose() },
+    );
+  }
+
+  return (
+    <Screen>
+      <PageHeader title="Edit Cabinet" showBack={false} />
+      <View className="gap-4">
+        <View className="items-center mb-2">
+          <EntityPhoto
+            signedUrl={localSignedUrl}
+            onPress={showActionSheet}
+            isUploading={isUploading}
+            size="xl"
+            shape="rounded"
+            FallbackIcon={Package}
+          />
+        </View>
+        <Input label="Name" value={name} onChangeText={setName} placeholder="e.g. Kitchen Cabinet" />
+        <Input
+          label="Description (optional)"
+          value={desc}
+          onChangeText={setDesc}
+          placeholder="What goes here?"
+          multiline
+          numberOfLines={3}
+        />
+        {error && <Text variant="caption" className="text-destructive">{error}</Text>}
+        <Button onPress={handleSave} loading={updateMutation.isPending} className="mt-2">
+          Save Changes
+        </Button>
+        <Button onPress={onClose} variant="ghost">Cancel</Button>
+      </View>
+    </Screen>
+  );
+}
+
+// ── Cabinet card ──────────────────────────────────────────────────────────
 
 function CabinetCard({
   cabinet,
@@ -29,9 +119,18 @@ function CabinetCard({
   return (
     <Card onPress={onPress} className="mb-3">
       <View className="flex-row items-center gap-3">
-        <View className="rounded-xl bg-blue-50 p-3">
-          <Package size={22} color="#2563EB" />
-        </View>
+        {cabinet.signedImageUrl ? (
+          <Image
+            source={{ uri: cabinet.signedImageUrl }}
+            style={{ width: 52, height: 52, borderRadius: 12 }}
+            contentFit="cover"
+            cachePolicy="disk"
+          />
+        ) : (
+          <View className="rounded-xl bg-blue-50 p-3">
+            <Package size={22} color="#2563EB" />
+          </View>
+        )}
         <View className="flex-1">
           <Text variant="h3">{cabinet.name}</Text>
           {cabinet.description && (
@@ -54,22 +153,19 @@ function CabinetCard({
   );
 }
 
+// ── Main screen ───────────────────────────────────────────────────────────
+
 export default function LocationDetailScreen() {
   const { locationId } = useLocalSearchParams<{ locationId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Edit form
   const [editingCabinet, setEditingCabinet] = useState<CabinetWithCounts | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: location } = useQuery({
     queryKey: ["location", locationId],
@@ -95,17 +191,6 @@ export default function LocationDetailScreen() {
     onError: (e: Error) => setCreateError(e.message),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name: string; description?: string } }) =>
-      cabinetsApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
-      setEditingCabinet(null);
-      setEditError(null);
-    },
-    onError: (e: Error) => setEditError(e.message),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: cabinetsApi.delete,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] }),
@@ -118,23 +203,6 @@ export default function LocationDetailScreen() {
       locationId,
       name: createName.trim(),
       description: createDesc.trim() || undefined,
-    });
-  }
-
-  function openEdit(cab: CabinetWithCounts) {
-    setEditName(cab.name);
-    setEditDesc(cab.description ?? "");
-    setEditError(null);
-    setEditingCabinet(cab);
-  }
-
-  function handleUpdate() {
-    if (!editingCabinet) return;
-    if (!editName.trim()) { setEditError("Name is required."); return; }
-    setEditError(null);
-    updateMutation.mutate({
-      id: editingCabinet.id,
-      data: { name: editName.trim(), description: editDesc.trim() || undefined },
     });
   }
 
@@ -181,7 +249,7 @@ export default function LocationDetailScreen() {
           <CabinetCard
             cabinet={item}
             onPress={() => router.push(`/(tabs)/locations/${locationId}/${item.id}`)}
-            onEdit={() => openEdit(item)}
+            onEdit={() => setEditingCabinet(item)}
             onDelete={() => confirmDelete(item.id, item.name)}
           />
         )}
@@ -222,29 +290,14 @@ export default function LocationDetailScreen() {
         </Screen>
       </Modal>
 
-      {/* ── Edit cabinet modal ────────────────────────────────────────── */}
+      {/* ── Edit cabinet modal (owns its own useImageUpload) ──────────── */}
       <Modal visible={!!editingCabinet} animationType="slide" presentationStyle="pageSheet">
-        <Screen>
-          <PageHeader title="Edit Cabinet" showBack={false} />
-          <View className="gap-4">
-            <Input label="Name" value={editName} onChangeText={setEditName} placeholder="e.g. Kitchen Cabinet" />
-            <Input
-              label="Description (optional)"
-              value={editDesc}
-              onChangeText={setEditDesc}
-              placeholder="What goes here?"
-              multiline
-              numberOfLines={3}
-            />
-            {editError && <Text variant="caption" className="text-destructive">{editError}</Text>}
-            <Button onPress={handleUpdate} loading={updateMutation.isPending} className="mt-2">
-              Save Changes
-            </Button>
-            <Button onPress={() => { setEditingCabinet(null); setEditError(null); }} variant="ghost">
-              Cancel
-            </Button>
-          </View>
-        </Screen>
+        {editingCabinet && (
+          <EditCabinetModal
+            cabinet={editingCabinet}
+            onClose={() => setEditingCabinet(null)}
+          />
+        )}
       </Modal>
     </Screen>
   );

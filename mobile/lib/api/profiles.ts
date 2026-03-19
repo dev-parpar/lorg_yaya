@@ -28,4 +28,8 @@ export const profilesApi = {
   /** Update the current user's username. */
   updateUsername: (username: string) =>
     apiClient.patch<Profile>("/api/profiles", { username }),
+
+  /** Update avatar path — server generates and stores the signed URL. */
+  updateAvatar: (avatarPath: string | null) =>
+    apiClient.patch<Profile>("/api/profiles", { avatarPath }),
 };

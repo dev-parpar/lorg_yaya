@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { updateShelfSchema } from "@/lib/validations/shelf";
 import { getAccessibleShelf } from "@/lib/db/access";
+import { generateSignedUrl } from "@/lib/storage/sign";
 
 type Params = { params: Promise<{ shelfId: string }> };
 
@@ -27,14 +28,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { shelfId } = await params;
-    await getAccessibleShelf(shelfId, userId);
+    const existing = await getAccessibleShelf(shelfId, userId);
 
     const body = await request.json();
-    const input = updateShelfSchema.parse(body);
+    const { imagePath, ...rest } = updateShelfSchema.parse(body);
+
+    let imageUpdate: { imagePath?: string | null; signedImageUrl?: string | null } = {};
+
+    if (imagePath === null) {
+      imageUpdate = { imagePath: null, signedImageUrl: null };
+    } else if (imagePath !== undefined) {
+      const signedImageUrl = await generateSignedUrl("shelves", imagePath);
+      imageUpdate = { imagePath, signedImageUrl };
+    }
 
     const updated = await prisma.shelf.update({
       where: { id: shelfId },
-      data: input,
+      data: { ...rest, ...imageUpdate },
     });
 
     return NextResponse.json({ data: updated });

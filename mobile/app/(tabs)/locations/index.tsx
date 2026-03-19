@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { FlatList, View, Modal, Alert, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Home, Building2, Users, Plus, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
+import { useAuthStore } from "@/lib/store/auth-store";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { EntityPhoto } from "@/components/ui/entity-photo";
 import type { LocationWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,6 +24,118 @@ interface LocationFormState {
   type: "HOME" | "OFFICE";
   address: string;
 }
+
+// ── Edit modal — owns its own useImageUpload instance ───────────────────────
+
+function EditLocationModal({
+  location,
+  onClose,
+}: {
+  location: LocationWithCounts;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+  const [form, setForm] = useState<LocationFormState>({
+    name: location.name,
+    type: location.type as "HOME" | "OFFICE",
+    address: location.address ?? "",
+  });
+  const [error, setError] = useState<string | null>(null);
+
+  // Track local signedImageUrl so photo updates show immediately
+  const [localSignedUrl, setLocalSignedUrl] = useState<string | null | undefined>(
+    location.signedImageUrl,
+  );
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Parameters<typeof locationsApi.update>[1]) =>
+      locationsApi.update(location.id, data),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      setLocalSignedUrl(updated.signedImageUrl);
+    },
+    onError: (e: Error) => setError(e.message),
+  });
+
+  const { showActionSheet, isUploading } = useImageUpload({
+    bucket: "locations",
+    buildPath: () => `${user!.id}/${location.id}`,
+    onUpload: async (imagePath) => {
+      const updated = await locationsApi.update(location.id, { imagePath });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      setLocalSignedUrl(updated.signedImageUrl);
+    },
+    onRemove: async () => {
+      const updated = await locationsApi.update(location.id, { imagePath: null });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      setLocalSignedUrl(updated.signedImageUrl);
+    },
+  });
+
+  function handleSave() {
+    if (!form.name.trim()) { setError("Name is required."); return; }
+    setError(null);
+    updateMutation.mutate(
+      { name: form.name.trim(), type: form.type, address: form.address.trim() || undefined },
+      { onSuccess: () => onClose() },
+    );
+  }
+
+  return (
+    <Screen>
+      <PageHeader title="Edit Location" showBack={false} />
+      <View className="gap-4">
+        {/* Photo */}
+        <View className="items-center mb-2">
+          <EntityPhoto
+            signedUrl={localSignedUrl}
+            onPress={showActionSheet}
+            isUploading={isUploading}
+            size="xl"
+            shape="rounded"
+            FallbackIcon={form.type === "OFFICE" ? Building2 : Home}
+          />
+        </View>
+
+        <Input
+          label="Name"
+          value={form.name}
+          onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
+          placeholder="e.g. Main House"
+        />
+        <View>
+          <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
+          <View className="flex-row gap-3">
+            {(["HOME", "OFFICE"] as const).map((t) => (
+              <Button
+                key={t}
+                variant={form.type === t ? "primary" : "outline"}
+                onPress={() => setForm((f) => ({ ...f, type: t }))}
+                className="flex-1"
+              >
+                {t === "HOME" ? "Home" : "Office"}
+              </Button>
+            ))}
+          </View>
+        </View>
+        <Input
+          label="Address (optional)"
+          value={form.address}
+          onChangeText={(v) => setForm((f) => ({ ...f, address: v }))}
+          placeholder="123 Main St"
+        />
+        {error && <Text variant="caption" className="text-destructive">{error}</Text>}
+        <Button onPress={handleSave} loading={updateMutation.isPending} className="mt-2">
+          Save Changes
+        </Button>
+        <Button onPress={onClose} variant="ghost">Cancel</Button>
+      </View>
+    </Screen>
+  );
+}
+
+// ── Location card ─────────────────────────────────────────────────────────
 
 function LocationCard({
   location,
@@ -40,9 +156,18 @@ function LocationCard({
   return (
     <Card onPress={onPress} className="mb-3">
       <View className="flex-row items-center gap-3">
-        <View className="rounded-xl bg-primary/10 p-3">
-          <Icon size={22} color="#2563EB" />
-        </View>
+        {location.signedImageUrl ? (
+          <Image
+            source={{ uri: location.signedImageUrl }}
+            style={{ width: 52, height: 52, borderRadius: 12 }}
+            contentFit="cover"
+            cachePolicy="disk"
+          />
+        ) : (
+          <View className="rounded-xl bg-primary/10 p-3">
+            <Icon size={22} color="#2563EB" />
+          </View>
+        )}
 
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
@@ -81,19 +206,17 @@ function LocationCard({
   );
 }
 
+// ── Main screen ───────────────────────────────────────────────────────────
+
 export default function LocationsScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<LocationFormState>({ name: "", type: "HOME", address: "" });
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Edit form
   const [editingLocation, setEditingLocation] = useState<LocationWithCounts | null>(null);
-  const [editForm, setEditForm] = useState<LocationFormState>({ name: "", type: "HOME", address: "" });
-  const [editError, setEditError] = useState<string | null>(null);
 
   const { data: locations, isLoading, error, refetch } = useQuery({
     queryKey: ["locations"],
@@ -111,17 +234,6 @@ export default function LocationsScreen() {
     onError: (e: Error) => setCreateError(e.message),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<LocationFormState> }) =>
-      locationsApi.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations"] });
-      setEditingLocation(null);
-      setEditError(null);
-    },
-    onError: (e: Error) => setEditError(e.message),
-  });
-
   const deleteMutation = useMutation({
     mutationFn: locationsApi.delete,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["locations"] }),
@@ -134,22 +246,6 @@ export default function LocationsScreen() {
       name: createForm.name.trim(),
       type: createForm.type,
       address: createForm.address.trim() || undefined,
-    });
-  }
-
-  function openEdit(loc: LocationWithCounts) {
-    setEditForm({ name: loc.name, type: loc.type as "HOME" | "OFFICE", address: loc.address ?? "" });
-    setEditError(null);
-    setEditingLocation(loc);
-  }
-
-  function handleUpdate() {
-    if (!editingLocation) return;
-    if (!editForm.name.trim()) { setEditError("Name is required."); return; }
-    setEditError(null);
-    updateMutation.mutate({
-      id: editingLocation.id,
-      data: { name: editForm.name.trim(), type: editForm.type, address: editForm.address.trim() || undefined },
     });
   }
 
@@ -204,7 +300,7 @@ export default function LocationsScreen() {
           <LocationCard
             location={item}
             onPress={() => router.push(`/(tabs)/locations/${item.id}`)}
-            onEdit={() => openEdit(item)}
+            onEdit={() => setEditingLocation(item)}
             onDelete={() => confirmDelete(item.id, item.name)}
             onMembers={() => router.push(`/(tabs)/locations/${item.id}/members`)}
           />
@@ -264,47 +360,14 @@ export default function LocationsScreen() {
         </Screen>
       </Modal>
 
-      {/* ── Edit location modal ───────────────────────────────────────── */}
+      {/* ── Edit location modal (owns its own useImageUpload) ─────────── */}
       <Modal visible={!!editingLocation} animationType="slide" presentationStyle="pageSheet">
-        <Screen>
-          <PageHeader title="Edit Location" showBack={false} />
-          <View className="gap-4">
-            <Input
-              label="Name"
-              value={editForm.name}
-              onChangeText={(v) => setEditForm((f) => ({ ...f, name: v }))}
-              placeholder="e.g. Main House"
-            />
-            <View>
-              <Text variant="caption" className="font-medium text-foreground mb-2">Type</Text>
-              <View className="flex-row gap-3">
-                {(["HOME", "OFFICE"] as const).map((t) => (
-                  <Button
-                    key={t}
-                    variant={editForm.type === t ? "primary" : "outline"}
-                    onPress={() => setEditForm((f) => ({ ...f, type: t }))}
-                    className="flex-1"
-                  >
-                    {t === "HOME" ? "Home" : "Office"}
-                  </Button>
-                ))}
-              </View>
-            </View>
-            <Input
-              label="Address (optional)"
-              value={editForm.address}
-              onChangeText={(v) => setEditForm((f) => ({ ...f, address: v }))}
-              placeholder="123 Main St"
-            />
-            {editError && <Text variant="caption" className="text-destructive">{editError}</Text>}
-            <Button onPress={handleUpdate} loading={updateMutation.isPending} className="mt-2">
-              Save Changes
-            </Button>
-            <Button onPress={() => { setEditingLocation(null); setEditError(null); }} variant="ghost">
-              Cancel
-            </Button>
-          </View>
-        </Screen>
+        {editingLocation && (
+          <EditLocationModal
+            location={editingLocation}
+            onClose={() => setEditingLocation(null)}
+          />
+        )}
       </Modal>
     </Screen>
   );

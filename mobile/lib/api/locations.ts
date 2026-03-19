@@ -9,7 +9,7 @@ export const locationsApi = {
   create: (data: { name: string; type: string; address?: string }) =>
     apiClient.post<Location>("/api/locations", data),
 
-  update: (id: string, data: Partial<{ name: string; type: string; address: string }>) =>
+  update: (id: string, data: Partial<{ name: string; type: string; address: string; imagePath: string | null }>) =>
     apiClient.patch<Location>(`/api/locations/${id}`, data),
 
   delete: (id: string) => apiClient.delete(`/api/locations/${id}`),

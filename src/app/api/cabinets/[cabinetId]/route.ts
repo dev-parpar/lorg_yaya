@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { updateCabinetSchema } from "@/lib/validations/cabinet";
 import { getAccessibleCabinet } from "@/lib/db/access";
+import { generateSignedUrl } from "@/lib/storage/sign";
 
 type Params = { params: Promise<{ cabinetId: string }> };
 
@@ -27,14 +28,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { cabinetId } = await params;
-    await getAccessibleCabinet(cabinetId, userId);
+    const existing = await getAccessibleCabinet(cabinetId, userId);
 
     const body = await request.json();
-    const input = updateCabinetSchema.parse(body);
+    const { imagePath, ...rest } = updateCabinetSchema.parse(body);
+
+    let imageUpdate: { imagePath?: string | null; signedImageUrl?: string | null } = {};
+
+    if (imagePath === null) {
+      imageUpdate = { imagePath: null, signedImageUrl: null };
+    } else if (imagePath !== undefined) {
+      const signedImageUrl = await generateSignedUrl("cabinets", imagePath);
+      imageUpdate = { imagePath, signedImageUrl };
+    }
 
     const updated = await prisma.cabinet.update({
       where: { id: cabinetId },
-      data: input,
+      data: { ...rest, ...imageUpdate },
     });
 
     return NextResponse.json({ data: updated });

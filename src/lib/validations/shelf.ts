@@ -8,7 +8,8 @@ export const createShelfSchema = z.object({
 
 export const updateShelfSchema = createShelfSchema
   .omit({ cabinetId: true })
-  .partial();
+  .partial()
+  .extend({ imagePath: z.string().nullable().optional() });
 
 export type CreateShelfInput = z.infer<typeof createShelfSchema>;
 export type UpdateShelfInput = z.infer<typeof updateShelfSchema>;

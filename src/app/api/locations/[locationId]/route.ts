@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { updateLocationSchema } from "@/lib/validations/location";
 import { getAccessibleLocation, assertLocationOwner } from "@/lib/db/access";
+import { generateSignedUrl } from "@/lib/storage/sign";
 
 type Params = { params: Promise<{ locationId: string }> };
 
@@ -27,15 +28,24 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { locationId } = await params;
-    // Both owner and members can edit location metadata (name, address, type)
-    await getAccessibleLocation(locationId, userId);
+    const existing = await getAccessibleLocation(locationId, userId);
 
     const body = await request.json();
-    const input = updateLocationSchema.parse(body);
+    const { imagePath, ...rest } = updateLocationSchema.parse(body);
+
+    let imageUpdate: { imagePath?: string | null; signedImageUrl?: string | null } = {};
+
+    if (imagePath === null) {
+      imageUpdate = { imagePath: null, signedImageUrl: null };
+    } else if (imagePath !== undefined) {
+      // New photo uploaded — generate stable signed URL
+      const signedImageUrl = await generateSignedUrl("locations", imagePath);
+      imageUpdate = { imagePath, signedImageUrl };
+    }
 
     const updated = await prisma.location.update({
       where: { id: locationId },
-      data: input,
+      data: { ...rest, ...imageUpdate },
     });
 
     return NextResponse.json({ data: updated });
@@ -50,7 +60,6 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     if (!userId) throw new UnauthorizedError();
 
     const { locationId } = await params;
-    // Only the owner may delete a location
     await assertLocationOwner(locationId, userId);
 
     await prisma.location.update({
