@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Alert, ActionSheetIOS, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import { decode } from "base64-arraybuffer";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -72,20 +74,26 @@ export function useImageUpload({
     setIsUploading(true);
 
     try {
-      // Fetch the local file as a blob
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      // React Native's fetch().blob() returns 0 bytes for local file:// URIs.
+      // The correct approach for Expo is to read as base64 via expo-file-system
+      // and decode to ArrayBuffer, which Supabase Storage accepts reliably.
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = decode(base64);
 
-      // Unique path with timestamp to bust expo-image disk cache on update
+      // Timestamp suffix ensures a new URL is generated on each update,
+      // which busts expo-image's disk cache automatically.
       const path = `${buildPath()}/${Date.now()}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+        .upload(path, arrayBuffer, { contentType: "image/jpeg", upsert: true });
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // Notify caller — they call their PATCH endpoint which signs the URL server-side
+      // Notify caller — they PATCH their entity with the path, and the server
+      // generates + stores the stable 10-year signed URL.
       await onUpload(path);
     } catch (e) {
       Alert.alert("Upload failed", (e as Error).message ?? "Something went wrong.");
