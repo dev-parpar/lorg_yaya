@@ -78,7 +78,7 @@ export function useImageUpload({
       // The correct approach for Expo is to read as base64 via expo-file-system
       // and decode to ArrayBuffer, which Supabase Storage accepts reliably.
       const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
+        encoding: "base64",
       });
       const arrayBuffer = decode(base64);
 
