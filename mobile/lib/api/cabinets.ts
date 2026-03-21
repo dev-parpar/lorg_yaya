@@ -7,8 +7,9 @@ export const cabinetsApi = {
   create: (data: { locationId: string; name: string; description?: string }) =>
     apiClient.post<Cabinet>("/api/cabinets", data),
 
-  update: (id: string, data: Partial<{ name: string; description: string }>) =>
+  update: (id: string, data: Partial<{ name: string; description: string; imagePath: string | null }>) =>
     apiClient.patch<Cabinet>(`/api/cabinets/${id}`, data),
+
 
   delete: (id: string) => apiClient.delete(`/api/cabinets/${id}`),
 
@@ -18,7 +19,7 @@ export const cabinetsApi = {
   createShelf: (data: { cabinetId: string; name: string; position?: number }) =>
     apiClient.post<Shelf>("/api/shelves", data),
 
-  updateShelf: (id: string, data: Partial<{ name: string; position: number }>) =>
+  updateShelf: (id: string, data: Partial<{ name: string; position: number; imagePath: string | null }>) =>
     apiClient.patch<Shelf>(`/api/shelves/${id}`, data),
 
   getItems: (cabinetId: string, shelfFilter?: string) => {

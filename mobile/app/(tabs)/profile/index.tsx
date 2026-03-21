@@ -8,11 +8,14 @@ import { apiClient } from "@/lib/api/client";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { NotificationBell } from "@/components/ui/notification-bell";
+import { EntityPhoto } from "@/components/ui/entity-photo";
 import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { User, Mail, LogOut, AtSign, Trash2, Pencil } from "lucide-react-native";
+import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import type { Profile } from "@/types";
 
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 
@@ -35,7 +38,21 @@ export default function ProfileScreen() {
     enabled: !!user,
   });
 
-  // Debounced username availability check (skip if unchanged)
+  // Avatar upload
+  const avatarMutation = useMutation({
+    mutationFn: (avatarPath: string | null) => profilesApi.updateAvatar(avatarPath),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profile"] }),
+    onError: (e: Error) => Alert.alert("Update failed", e.message),
+  });
+
+  const { showActionSheet: showAvatarSheet, isUploading: uploadingAvatar } = useImageUpload({
+    bucket: "avatars",
+    buildPath: () => `${user!.id}`,
+    onUpload: async (imagePath) => { await avatarMutation.mutateAsync(imagePath); },
+    onRemove: async () => { await avatarMutation.mutateAsync(null); },
+  });
+
+  // Debounced username availability check
   useEffect(() => {
     if (!showEdit) return;
     const trimmed = editUsername.trim().toLowerCase();
@@ -62,20 +79,17 @@ export default function ProfileScreen() {
       const trimmedUsername = username.trim().toLowerCase();
       const trimmedName = fullName.trim();
 
-      // Update full name in Supabase auth metadata
       if (trimmedName !== (user?.user_metadata?.full_name ?? "")) {
         const { error } = await supabase.auth.updateUser({ data: { full_name: trimmedName } });
         if (error) throw new Error(error.message);
       }
 
-      // Update username in our DB if changed
       if (trimmedUsername !== profile?.username) {
         await profilesApi.updateUsername(trimmedUsername);
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      // Refresh the local Supabase session so user_metadata reflects the new name
       supabase.auth.refreshSession();
       setShowEdit(false);
       setSaveError(null);
@@ -140,6 +154,8 @@ export default function ProfileScreen() {
     }
   }
 
+  const typedProfile = profile as unknown as Profile | null;
+
   const usernameHint =
     usernameStatus === "checking" ? "Checking…"
     : usernameStatus === "taken" ? "Username already taken"
@@ -154,16 +170,20 @@ export default function ProfileScreen() {
 
   return (
     <Screen>
-      <PageHeader
-        title="Profile"
-        rightElement={<NotificationBell />}
-      />
+      <PageHeader title="Profile" rightElement={<NotificationBell />} />
 
       {/* ── User card ─────────────────────────────────────────────────── */}
       <Card className="mb-4">
         <View className="items-center py-4">
-          <View className="rounded-full bg-primary/10 p-5 mb-3">
-            <User size={36} color="#2563EB" />
+          <View className="mb-3">
+            <EntityPhoto
+              signedUrl={typedProfile?.signedAvatarUrl}
+              onPress={showAvatarSheet}
+              isUploading={uploadingAvatar || avatarMutation.isPending}
+              size="xl"
+              shape="circle"
+              FallbackIcon={User}
+            />
           </View>
           <Text variant="h3">
             {user?.user_metadata?.full_name ?? profile?.username ?? "Inventory Owner"}

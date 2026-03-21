@@ -7,7 +7,6 @@ export interface CreateItemPayload {
   name: string;
   description?: string;
   quantity?: number;
-  imageUrl?: string;
   tags?: string[];
   itemType?: ItemType;
 }
@@ -19,6 +18,9 @@ export const itemsApi = {
 
   update: (id: string, data: Partial<CreateItemPayload>) =>
     apiClient.patch<Item>(`/api/items/${id}`, data),
+
+  updatePhoto: (id: string, imagePath: string | null) =>
+    apiClient.patch<Item>(`/api/items/${id}`, { imagePath }),
 
   delete: (id: string) => apiClient.delete(`/api/items/${id}`),
 

@@ -6,7 +6,9 @@ export const createLocationSchema = z.object({
   address: z.string().max(1000).optional(),
 });
 
-export const updateLocationSchema = createLocationSchema.partial();
+export const updateLocationSchema = createLocationSchema
+  .partial()
+  .extend({ imagePath: z.string().nullable().optional() });
 
 export type CreateLocationInput = z.infer<typeof createLocationSchema>;
 export type UpdateLocationInput = z.infer<typeof updateLocationSchema>;

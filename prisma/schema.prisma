@@ -20,13 +20,15 @@ enum ProfileStatus {
 //             so the email is free for re-registration. This row is kept as
 //             an audit record only. userId is a dead reference.
 model Profile {
-  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String        @unique @map("user_id")
-  username  String        @unique @db.VarChar(30)
-  status    ProfileStatus @default(ACTIVE) @map("status")
-  deletedAt DateTime?     @map("deleted_at")
-  createdAt DateTime      @default(now()) @map("created_at")
-  updatedAt DateTime      @updatedAt @map("updated_at")
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String        @unique @map("user_id")
+  username       String        @unique @db.VarChar(30)
+  status         ProfileStatus @default(ACTIVE) @map("status")
+  deletedAt      DateTime?     @map("deleted_at")
+  avatarPath     String?       @map("avatar_path") @db.Text
+  signedAvatarUrl String?      @map("signed_avatar_url") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([username, status])
@@ -67,14 +69,16 @@ enum InviteStatus {
 }
 
 model Location {
-  id        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String       @map("user_id")
-  name      String       @db.VarChar(255)
-  type      LocationType @default(HOME)
-  address   String?      @db.Text
-  createdAt DateTime     @default(now()) @map("created_at")
-  updatedAt DateTime     @updatedAt @map("updated_at")
-  deletedAt DateTime?    @map("deleted_at")
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String       @map("user_id")
+  name            String       @db.VarChar(255)
+  type            LocationType @default(HOME)
+  address         String?      @db.Text
+  imagePath       String?      @map("image_path") @db.Text
+  signedImageUrl  String?      @map("signed_image_url") @db.Text
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
 
   cabinets Cabinet[]
   members  LocationMember[]
@@ -105,13 +109,15 @@ model LocationMember {
 }
 
 model Cabinet {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  locationId  String    @map("location_id") @db.Uuid
-  name        String    @db.VarChar(255)
-  description String?   @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  deletedAt   DateTime? @map("deleted_at")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId     String    @map("location_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  description    String?   @db.Text
+  imagePath      String?   @map("image_path") @db.Text
+  signedImageUrl String?   @map("signed_image_url") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
   location Location @relation(fields: [locationId], references: [id])
   shelves  Shelf[]
@@ -123,13 +129,15 @@ model Cabinet {
 }
 
 model Shelf {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  cabinetId String    @map("cabinet_id") @db.Uuid
-  name      String    @db.VarChar(255)
-  position  Int       @default(0)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  deletedAt DateTime? @map("deleted_at")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cabinetId      String    @map("cabinet_id") @db.Uuid
+  name           String    @db.VarChar(255)
+  position       Int       @default(0)
+  imagePath      String?   @map("image_path") @db.Text
+  signedImageUrl String?   @map("signed_image_url") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
 
   cabinet Cabinet @relation(fields: [cabinetId], references: [id])
   items   Item[]
@@ -143,12 +151,13 @@ model Item {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   cabinetId    String    @map("cabinet_id") @db.Uuid
   shelfId      String?   @map("shelf_id") @db.Uuid
-  name         String    @db.VarChar(255)
-  description  String?   @db.Text
-  quantity     Int       @default(1)
-  itemType     ItemType  @default(OTHER) @map("item_type")
-  imageUrl     String?   @map("image_url") @db.Text
-  tags         String[]  @default([])
+  name           String    @db.VarChar(255)
+  description    String?   @db.Text
+  quantity       Int       @default(1)
+  itemType       ItemType  @default(OTHER) @map("item_type")
+  imagePath      String?   @map("image_path") @db.Text
+  signedImageUrl String?   @map("signed_image_url") @db.Text
+  tags           String[]  @default([])
   // searchVector is maintained by a DB trigger — see migrations
   searchVector Unsupported("tsvector")?  @map("search_vector")
   createdAt    DateTime  @default(now()) @map("created_at")

@@ -30,8 +30,19 @@ export const ITEM_TYPE_LABELS: Record<ItemType, string> = {
 };
 
 export const ALL_ITEM_TYPES = Object.keys(ITEM_TYPE_LABELS) as ItemType[];
+
 export type LocationRole = "OWNER" | "EDITOR";
 export type InviteStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "REVOKED";
+
+export interface Profile {
+  id: string;
+  userId: string;
+  username: string;
+  avatarPath: string | null;
+  signedAvatarUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface Location {
   id: string;
@@ -39,6 +50,8 @@ export interface Location {
   name: string;
   type: LocationType;
   address: string | null;
+  imagePath: string | null;
+  signedImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -77,6 +90,7 @@ export interface Invite {
     name: string;
     type: LocationType;
     address: string | null;
+    signedImageUrl: string | null;
   };
 }
 
@@ -85,6 +99,8 @@ export interface Cabinet {
   locationId: string;
   name: string;
   description: string | null;
+  imagePath: string | null;
+  signedImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -99,6 +115,8 @@ export interface Shelf {
   cabinetId: string;
   name: string;
   position: number;
+  imagePath: string | null;
+  signedImageUrl: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -116,7 +134,8 @@ export interface Item {
   description: string | null;
   quantity: number;
   itemType: ItemType;
-  imageUrl: string | null;
+  imagePath: string | null;
+  signedImageUrl: string | null;
   tags: string[];
   createdAt: string;
   updatedAt: string;

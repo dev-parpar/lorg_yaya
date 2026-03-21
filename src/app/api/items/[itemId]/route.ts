@@ -4,6 +4,7 @@ import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
 import { handleRouteError, UnauthorizedError, NotFoundError } from "@/lib/errors";
 import { updateItemSchema } from "@/lib/validations/item";
 import { getAccessibleItem } from "@/lib/db/access";
+import { generateSignedUrl } from "@/lib/storage/sign";
 
 type Params = { params: Promise<{ itemId: string }> };
 
@@ -30,23 +31,28 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const existing = await getAccessibleItem(itemId, userId);
 
     const body = await request.json();
-    const input = updateItemSchema.parse(body);
+    const { imagePath, ...rest } = updateItemSchema.parse(body);
 
-    // If moving to a new shelf, verify it belongs to the same cabinet
-    if (input.shelfId && input.shelfId !== existing.shelfId) {
+    // Validate shelf ownership if moving to a new shelf
+    if (rest.shelfId && rest.shelfId !== existing.shelfId) {
       const shelf = await prisma.shelf.findFirst({
-        where: {
-          id: input.shelfId,
-          cabinetId: existing.cabinetId,
-          deletedAt: null,
-        },
+        where: { id: rest.shelfId, cabinetId: existing.cabinetId, deletedAt: null },
       });
       if (!shelf) throw new NotFoundError("Shelf");
     }
 
+    let imageUpdate: { imagePath?: string | null; signedImageUrl?: string | null } = {};
+
+    if (imagePath === null) {
+      imageUpdate = { imagePath: null, signedImageUrl: null };
+    } else if (imagePath !== undefined) {
+      const signedImageUrl = await generateSignedUrl("items", imagePath);
+      imageUpdate = { imagePath, signedImageUrl };
+    }
+
     const updated = await prisma.item.update({
       where: { id: itemId },
-      data: input,
+      data: { ...rest, ...imageUpdate },
     });
 
     return NextResponse.json({ data: updated });

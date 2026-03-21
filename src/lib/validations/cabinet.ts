@@ -8,7 +8,8 @@ export const createCabinetSchema = z.object({
 
 export const updateCabinetSchema = createCabinetSchema
   .omit({ locationId: true })
-  .partial();
+  .partial()
+  .extend({ imagePath: z.string().nullable().optional() });
 
 export type CreateCabinetInput = z.infer<typeof createCabinetSchema>;
 export type UpdateCabinetInput = z.infer<typeof updateCabinetSchema>;
