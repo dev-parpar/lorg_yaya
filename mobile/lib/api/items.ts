@@ -11,10 +11,31 @@ export interface CreateItemPayload {
   itemType?: ItemType;
 }
 
+export interface BatchItemRow {
+  name: string;
+  quantity: number;
+  itemType: ItemType;
+}
+
+export interface CreateItemsBatchPayload {
+  cabinetId: string;
+  shelfId?: string;
+  items: BatchItemRow[];
+}
+
+export interface BatchCreateResult {
+  count: number;
+  items: Item[];
+}
+
 export const itemsApi = {
   get: (id: string) => apiClient.get<ItemWithLocation>(`/api/items/${id}`),
 
   create: (data: CreateItemPayload) => apiClient.post<Item>("/api/items", data),
+
+  /** Create multiple items in a single round-trip. Max 50 per batch. */
+  batchCreate: (data: CreateItemsBatchPayload) =>
+    apiClient.post<BatchCreateResult>("/api/items/batch", data),
 
   update: (id: string, data: Partial<CreateItemPayload>) =>
     apiClient.patch<Item>(`/api/items/${id}`, data),

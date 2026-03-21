@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   FlatList,
   ScrollView,
+  ActionSheetIOS,
+  Platform,
 } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -18,6 +20,7 @@ import { itemsApi } from "@/lib/api/items";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import { EntityPhoto } from "@/components/ui/entity-photo";
+import { BulkItemModal } from "@/components/ui/bulk-item-modal";
 import type { ShelfWithCounts, Item, ItemType } from "@/types";
 import { ITEM_TYPE_LABELS, ALL_ITEM_TYPES } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -226,11 +229,14 @@ export default function CabinetDetailScreen() {
   // Shelf edit modal
   const [editingShelf, setEditingShelf] = useState<ShelfWithCounts | null>(null);
 
-  // Item create form
+  // Item create form (single)
   const [showItemForm, setShowItemForm] = useState(false);
   const [itemName, setItemName] = useState("");
   const [itemQty, setItemQty] = useState("1");
   const [itemType, setItemType] = useState<ItemType>("OTHER");
+
+  // Bulk item entry modal
+  const [showBulkForm, setShowBulkForm] = useState(false);
 
   // Item edit modal
   const [editingItem, setEditingItem] = useState<Item | null>(null);
@@ -306,6 +312,28 @@ export default function CabinetDetailScreen() {
     ]);
   }
 
+  /** Show an action sheet so the user picks single or bulk entry. */
+  function promptAddItem() {
+    const options = ["Add Single Item", "Add Multiple Items", "Cancel"];
+    const cancelIndex = 2;
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIndex },
+        (index) => {
+          if (index === 0) setShowItemForm(true);
+          else if (index === 1) setShowBulkForm(true);
+        },
+      );
+    } else {
+      Alert.alert("Add Items", undefined, [
+        { text: "Add Single Item", onPress: () => setShowItemForm(true) },
+        { text: "Add Multiple Items", onPress: () => setShowBulkForm(true) },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  }
+
   const isLoading = shelvesLoading || itemsLoading;
 
   if (isLoading) {
@@ -350,7 +378,7 @@ export default function CabinetDetailScreen() {
           ? `${items?.length ?? 0} item(s)`
           : `${shelves?.length ?? 0} shelves · ${items?.length ?? 0} items`}
         showBack
-        onAdd={() => setShowItemForm(true)}
+        onAdd={promptAddItem}
       />
 
       <SectionList
@@ -585,6 +613,15 @@ export default function CabinetDetailScreen() {
           />
         )}
       </Modal>
+
+      {/* ── Bulk item entry modal ─────────────────────────────────────── */}
+      <BulkItemModal
+        visible={showBulkForm}
+        cabinetId={cabinetId}
+        shelfId={shelfFilter}
+        onClose={() => setShowBulkForm(false)}
+        queryKey={["items", cabinetId, shelfFilter]}
+      />
     </Screen>
   );
 }
