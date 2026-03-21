@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, ActionSheetIOS, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { File as ExpoFile } from "expo-file-system/next";
+import { File as ExpoFile } from "expo-file-system";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -47,12 +47,21 @@ export function useImageUpload({
         Alert.alert("Permission needed", "Please allow camera access in your device settings.");
         return null;
       }
-      return ImagePicker.launchCameraAsync({
-        mediaTypes: "images",
-        quality: 0.8,
-        allowsEditing: true,
-        aspect: [1, 1],
-      });
+      try {
+        return await ImagePicker.launchCameraAsync({
+          mediaTypes: "images",
+          quality: 0.8,
+          allowsEditing: true,
+          aspect: [1, 1],
+        });
+      } catch {
+        // iOS/Android simulators have no physical camera — launchCameraAsync throws
+        Alert.alert(
+          "Camera unavailable",
+          "The camera is not available on this device. Please choose a photo from your library instead.",
+        );
+        return null;
+      }
     } else {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
@@ -77,7 +86,7 @@ export function useImageUpload({
       // and returns a Uint8Array. Supabase Storage accepts ArrayBufferView
       // (which Uint8Array implements), so no base64 encoding step is needed.
       const file = new ExpoFile(uri);
-      const bytes = await file.bytes();
+      const arrayBuffer = await file.arrayBuffer();
 
       // Timestamp suffix ensures a new path on each update, which naturally
       // busts expo-image's disk cache (different URL = cache miss).
@@ -85,7 +94,7 @@ export function useImageUpload({
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+        .upload(path, arrayBuffer, { contentType: "image/jpeg", upsert: true });
 
       if (uploadError) throw new Error(uploadError.message);
 
