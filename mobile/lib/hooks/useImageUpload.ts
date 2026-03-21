@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Alert, ActionSheetIOS, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
-import { decode } from "base64-arraybuffer";
+import { File as ExpoFile } from "expo-file-system/next";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 
@@ -74,21 +73,19 @@ export function useImageUpload({
     setIsUploading(true);
 
     try {
-      // React Native's fetch().blob() returns 0 bytes for local file:// URIs.
-      // The correct approach for Expo is to read as base64 via expo-file-system
-      // and decode to ArrayBuffer, which Supabase Storage accepts reliably.
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: "base64",
-      });
-      const arrayBuffer = decode(base64);
+      // expo-file-system/next File.bytes() reads the local file:// URI natively
+      // and returns a Uint8Array. Supabase Storage accepts ArrayBufferView
+      // (which Uint8Array implements), so no base64 encoding step is needed.
+      const file = new ExpoFile(uri);
+      const bytes = await file.bytes();
 
-      // Timestamp suffix ensures a new URL is generated on each update,
-      // which busts expo-image's disk cache automatically.
+      // Timestamp suffix ensures a new path on each update, which naturally
+      // busts expo-image's disk cache (different URL = cache miss).
       const path = `${buildPath()}/${Date.now()}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(path, arrayBuffer, { contentType: "image/jpeg", upsert: true });
+        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
 
       if (uploadError) throw new Error(uploadError.message);
 
