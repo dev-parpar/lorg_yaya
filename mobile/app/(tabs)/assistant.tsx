@@ -1,10 +1,4 @@
-import {
-  useRef,
-  useState,
-  useCallback,
-  KeyboardAvoidingView,
-  Platform,
-} from "react";
+import { useRef, useState, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -13,9 +7,11 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
-import { Bot, SendHorizontal, RotateCcw } from "lucide-react-native";
+import { Sparkles, SendHorizontal, RotateCcw } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
 
 import { Screen } from "@/components/ui/screen";
@@ -115,7 +111,7 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
     <View className="self-start max-w-[92%] mb-3">
       <View className="flex-row gap-2 items-start">
         <View className="w-7 h-7 rounded-full bg-primary/10 items-center justify-center mt-0.5 shrink-0">
-          <Bot size={15} color="#2563EB" />
+          <Sparkles size={15} color="#2563EB" />
         </View>
         <View className="flex-1 bg-white border border-border px-4 py-3 rounded-2xl rounded-tl-sm">
           {displayContent === "..." ? (
@@ -142,14 +138,14 @@ function EmptyState({
   return (
     <View className="flex-1 items-center justify-center px-6 pb-12">
       <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-5">
-        <Bot size={38} color="#2563EB" />
+        <Sparkles size={38} color="#2563EB" />
       </View>
       <Text variant="h2" className="text-center mb-2">
-        Ask me anything
+        Hi, I'm Lorgy
       </Text>
       <Text variant="body" className="text-muted-foreground text-center mb-8">
-        I can find items, check if you have what you need, and tell you exactly
-        where everything is stored.
+        Ask me anything about your inventory. I can find items, check if you
+        have what you need, and tell you exactly where everything is stored.
       </Text>
 
       <View className="w-full gap-2">
@@ -221,7 +217,7 @@ export default function AssistantScreen() {
   return (
     <Screen scroll={false}>
       <PageHeader
-        title="Assistant"
+        title="Lorgy"
         subtitle={
           inventoryLoading
             ? "Loading inventory…"
