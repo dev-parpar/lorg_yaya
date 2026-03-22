@@ -26,7 +26,7 @@ export function locationAccessFilter(userId: string) {
       { userId },
       { members: { some: { userId, status: InviteStatus.ACCEPTED } } },
     ],
-  } as const;
+  };
 }
 
 // ── Location ──────────────────────────────────────────────────────────────

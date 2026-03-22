@@ -63,7 +63,13 @@ export async function POST(request: NextRequest) {
     { role: "user", content: message },
   ];
 
-  const systemPrompt = buildSystemPrompt(inventory);
+  const systemPrompt = buildSystemPrompt(
+    inventory.map((item) => ({
+      ...item,
+      shelf: item.shelf ?? null,
+      description: item.description ?? null,
+    })),
+  );
 
   const encoder = new TextEncoder();
 

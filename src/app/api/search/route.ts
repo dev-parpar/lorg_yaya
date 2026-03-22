@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         { userId },
         { members: { some: { userId, status: InviteStatus.ACCEPTED } } },
       ],
-    } as const;
+    };
 
     const itemWhere = {
       deletedAt: null,

@@ -47,10 +47,10 @@ export function ItemCard({ item, locationId, cabinetId }: ItemCardProps) {
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            {item.imageUrl ? (
+            {item.signedImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={item.imageUrl}
+                src={item.signedImageUrl}
                 alt={item.name}
                 className="h-10 w-10 rounded-md object-cover shrink-0"
               />

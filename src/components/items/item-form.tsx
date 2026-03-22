@@ -34,7 +34,7 @@ export function ItemForm({ cabinetId, locationId, shelves, existing, preselected
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [quantity, setQuantity] = useState(existing?.quantity?.toString() ?? "1");
-  const [imageUrl, setImageUrl] = useState(existing?.imageUrl ?? "");
+  const [imageUrl, setImageUrl] = useState(existing?.signedImageUrl ?? "");
   const [shelfId, setShelfId] = useState(existing?.shelfId ?? preselectedShelfId ?? "none");
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
