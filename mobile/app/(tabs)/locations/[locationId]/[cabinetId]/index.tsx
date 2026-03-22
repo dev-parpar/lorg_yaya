@@ -280,6 +280,7 @@ export default function CabinetDetailScreen() {
     mutationFn: itemsApi.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
       setShowItemForm(false);
       setItemName("");
       setItemQty("1");

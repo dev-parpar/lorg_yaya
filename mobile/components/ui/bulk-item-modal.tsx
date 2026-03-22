@@ -185,6 +185,7 @@ export function BulkItemModal({
       itemsApi.batchCreate({ cabinetId, shelfId, items: validRows }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
       handleClose();
       Alert.alert(
         "Items added",

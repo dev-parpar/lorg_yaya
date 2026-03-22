@@ -284,6 +284,8 @@ export function ItemReviewModal({
       }
 
       await queryClient.invalidateQueries({ queryKey });
+      // Bust the flat inventory cache so Lorgy's next response includes the new items
+      await queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
       onClose();
 
       const total = active.length;
@@ -306,8 +308,6 @@ export function ItemReviewModal({
   }
 
   const activeCount = rows.filter((r) => !r.skipped && r.name.trim().length > 0).length;
-
-  console.log("[ItemReviewModal] render — visible:", visible, "rows.length:", rows.length);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
