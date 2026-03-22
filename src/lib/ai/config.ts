@@ -29,4 +29,12 @@ export const aiConfig = {
   get anthropicApiKey(): string {
     return requireEnv("ANTHROPIC_API_KEY");
   },
+  /**
+   * Model used for vision (image → item identification).
+   * Defaults to the same model as chat if not explicitly set.
+   * Override with AI_VISION_MODEL=claude-3-5-sonnet-20241022 for higher accuracy on shelf scans.
+   */
+  get visionModel(): string {
+    return process.env.AI_VISION_MODEL ?? process.env.AI_MODEL ?? "claude-3-5-haiku-20241022";
+  },
 } as const;

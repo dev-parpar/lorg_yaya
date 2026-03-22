@@ -147,6 +147,36 @@ export interface ItemWithLocation extends Item {
   cabinet: Cabinet & { location: Location };
 }
 
+// ── AI / Vision ──────────────────────────────────────────────────────────────
+
+/**
+ * One item returned by POST /api/ai/identify-items after the vision + dedup passes.
+ * The mobile review screen works entirely with this type.
+ */
+export interface DetectedItem {
+  /** Local-only stable key for list rendering — never sent to the API */
+  _key: string;
+  name: string;
+  type: ItemType;
+  /** Claude's confidence score 0–1 */
+  confidence: number;
+  /** How many to add / increment (default 1) */
+  quantity: number;
+  /** True when this item semantically matches an item already in the cabinet */
+  isDuplicate: boolean;
+  /** ID of the existing item to increment (only set when isDuplicate = true) */
+  existingItemId: string | null;
+  /** Current qty of the existing item (only set when isDuplicate = true) */
+  existingQty: number | null;
+  /** User chose to skip this item entirely */
+  skipped: boolean;
+  /**
+   * When isDuplicate = true and the user wants to bump the qty instead of
+   * creating a second entry, set this to true. Default true for duplicates.
+   */
+  incrementInstead: boolean;
+}
+
 // ── AI / Chat ────────────────────────────────────────────────────────────────
 
 /** Mirrors FlatInventoryItem from src/lib/ai/system-prompt.ts */

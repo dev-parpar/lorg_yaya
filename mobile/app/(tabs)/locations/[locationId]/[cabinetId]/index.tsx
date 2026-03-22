@@ -14,14 +14,16 @@ import {
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Layers, Package2, ChevronRight, ArrowRightLeft, Pencil } from "lucide-react-native";
+import { Layers, Package2, ChevronRight, ArrowRightLeft, Pencil, ScanLine } from "lucide-react-native";
 import { cabinetsApi } from "@/lib/api/cabinets";
 import { itemsApi } from "@/lib/api/items";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { useItemIdentifier } from "@/lib/hooks/useItemIdentifier";
 import { EntityPhoto } from "@/components/ui/entity-photo";
 import { BulkItemModal } from "@/components/ui/bulk-item-modal";
-import type { ShelfWithCounts, Item, ItemType } from "@/types";
+import { ItemReviewModal } from "@/components/ui/item-review-modal";
+import type { ShelfWithCounts, Item, ItemType, DetectedItem } from "@/types";
 import { ITEM_TYPE_LABELS, ALL_ITEM_TYPES } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -238,6 +240,11 @@ export default function CabinetDetailScreen() {
   // Bulk item entry modal
   const [showBulkForm, setShowBulkForm] = useState(false);
 
+  // CV scan review modal
+  const [scannedItems, setScannedItems] = useState<DetectedItem[]>([]);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const { isIdentifying, showSourcePicker } = useItemIdentifier();
+
   // Item edit modal
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
@@ -312,23 +319,42 @@ export default function CabinetDetailScreen() {
     ]);
   }
 
-  /** Show an action sheet so the user picks single or bulk entry. */
+  /** Show an action sheet so the user picks how to add items. */
   function promptAddItem() {
-    const options = ["Add Single Item", "Add Multiple Items", "Cancel"];
-    const cancelIndex = 2;
+    const options = [
+      "📷  Scan with camera",
+      "🖼   Choose from library",
+      "✏️   Add single item",
+      "📋  Add multiple items",
+      "Cancel",
+    ];
+    const cancelIndex = options.length - 1;
+
+    function handleChoice(index: number) {
+      if (index === 0 || index === 1) {
+        // Photo flows — delegate source picking to the hook
+        showSourcePicker(cabinetId, (items) => {
+          setScannedItems(items);
+          setShowReviewModal(true);
+        });
+      } else if (index === 2) {
+        setShowItemForm(true);
+      } else if (index === 3) {
+        setShowBulkForm(true);
+      }
+    }
 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         { options, cancelButtonIndex: cancelIndex },
-        (index) => {
-          if (index === 0) setShowItemForm(true);
-          else if (index === 1) setShowBulkForm(true);
-        },
+        handleChoice,
       );
     } else {
       Alert.alert("Add Items", undefined, [
-        { text: "Add Single Item", onPress: () => setShowItemForm(true) },
-        { text: "Add Multiple Items", onPress: () => setShowBulkForm(true) },
+        { text: "Scan with camera", onPress: () => handleChoice(0) },
+        { text: "Choose from library", onPress: () => handleChoice(1) },
+        { text: "Add single item", onPress: () => handleChoice(2) },
+        { text: "Add multiple items", onPress: () => handleChoice(3) },
         { text: "Cancel", style: "cancel" },
       ]);
     }
@@ -620,6 +646,40 @@ export default function CabinetDetailScreen() {
         cabinetId={cabinetId}
         shelfId={shelfFilter}
         onClose={() => setShowBulkForm(false)}
+        queryKey={["items", cabinetId, shelfFilter]}
+      />
+
+      {/* ── CV scan — identifying overlay ────────────────────────────── */}
+      <Modal visible={isIdentifying} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.55)",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+          }}
+        >
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <ScanLine size={20} color="#FFFFFF" />
+            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
+              Identifying items…
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── CV scan — review modal ────────────────────────────────────── */}
+      <ItemReviewModal
+        visible={showReviewModal}
+        detectedItems={scannedItems}
+        cabinetId={cabinetId}
+        shelfId={shelfFilter}
+        onClose={() => {
+          setShowReviewModal(false);
+          setScannedItems([]);
+        }}
         queryKey={["items", cabinetId, shelfFilter]}
       />
     </Screen>
