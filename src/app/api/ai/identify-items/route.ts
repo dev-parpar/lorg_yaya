@@ -97,20 +97,36 @@ Example: [{"name":"Claw Hammer","type":"OTHER","confidence":0.91},{"name":"WD-40
       ],
     });
 
-    const visionText = visionResponse.content
+    const visionRaw = visionResponse.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("")
       .trim();
+
+    // Claude sometimes wraps JSON in markdown code fences (```json … ```)
+    // even when instructed not to — strip them before parsing.
+    const visionText = visionRaw
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+
+    console.log("[identify-items] Vision raw (first 200 chars):", visionRaw.slice(0, 200));
 
     let detections: RawDetection[] = [];
     try {
       const parsed: unknown = JSON.parse(visionText);
       if (Array.isArray(parsed)) {
         detections = parsed as RawDetection[];
+      } else {
+        console.error("[identify-items] Vision response was not an array:", typeof parsed);
       }
-    } catch {
-      console.error("[identify-items] Vision parse error. Raw:", visionText.slice(0, 200));
+    } catch (err) {
+      console.error(
+        "[identify-items] Vision JSON parse failed:",
+        (err as Error).message,
+        "| Cleaned text:",
+        visionText.slice(0, 200),
+      );
     }
 
     // Clamp confidence and normalise item types to our enum
@@ -175,10 +191,15 @@ Return ONLY the raw JSON array — no markdown, no explanation.`,
         ],
       });
 
-      const dedupText = dedupResponse.content
+      const dedupRaw = dedupResponse.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("")
+        .trim();
+
+      const dedupText = dedupRaw
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```\s*$/, "")
         .trim();
 
       try {
