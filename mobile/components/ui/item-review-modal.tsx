@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Modal,
@@ -199,9 +199,14 @@ export function ItemReviewModal({
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<DetectedItem[]>(detectedItems);
 
-  // Sync rows when new detections arrive (modal re-opened with new scan)
-  // We do this by keying on visible changes via a separate useEffect-like pattern.
-  // Since this is a controlled modal, we rely on the parent unmounting/remounting.
+  // React Native Modals stay mounted even when visible=false, so useState(detectedItems)
+  // only fires once at mount time (when detectedItems is still []). Sync whenever
+  // the modal opens with a fresh set of detections.
+  useEffect(() => {
+    if (visible && detectedItems.length > 0) {
+      setRows(detectedItems);
+    }
+  }, [visible, detectedItems]);
 
   // ── Row mutation helpers ──────────────────────────────────────────────────
 
