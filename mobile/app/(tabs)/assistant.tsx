@@ -1,7 +1,6 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import {
   View,
-  FlatList,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -9,10 +8,12 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Text as RNText,
 } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, SendHorizontal, RotateCcw } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
+import { useState } from "react";
 
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -36,7 +37,6 @@ const markdownStyles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 4,
   },
-  // @ts-expect-error react-native-markdown-display uses plain object keys
   thead: { backgroundColor: "#F8FAFC" },
   tr: {
     flexDirection: "row",
@@ -91,38 +91,69 @@ const EXAMPLE_PROMPTS = [
 
 function UserBubble({ content }: { content: string }) {
   return (
-    <View className="self-end max-w-[82%] mb-3">
-      <View className="bg-primary px-4 py-3 rounded-2xl rounded-tr-sm">
-        <Text className="text-white text-sm leading-5">{content}</Text>
+    <View style={{ alignSelf: "flex-end", maxWidth: "82%", marginBottom: 12 }}>
+      <View
+        style={{
+          backgroundColor: "#2563EB",
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          borderRadius: 16,
+          borderTopRightRadius: 4,
+        }}
+      >
+        <RNText style={{ fontSize: 14, color: "#FFFFFF", lineHeight: 21 }}>
+          {content}
+        </RNText>
       </View>
     </View>
   );
 }
 
 function AssistantBubble({ message }: { message: ChatMessage }) {
-  const displayContent =
-    message.isStreaming && message.content === ""
-      ? "..."
-      : message.isStreaming
-        ? message.content + "▌"
-        : message.content;
+  const isEmpty = message.isStreaming && message.content === "";
 
   return (
-    <View className="self-start max-w-[92%] mb-3">
-      <View className="flex-row gap-2 items-start">
-        <View className="w-7 h-7 rounded-full bg-primary/10 items-center justify-center mt-0.5 shrink-0">
+    <View style={{ width: "92%", marginBottom: 12 }}>
+      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+        <View
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            backgroundColor: "#EFF6FF",
+            alignItems: "center",
+            justifyContent: "center",
+            marginTop: 2,
+            flexShrink: 0,
+          }}
+        >
           <Sparkles size={15} color="#2563EB" />
         </View>
-        <View className="flex-1 bg-white border border-border px-4 py-3 rounded-2xl rounded-tl-sm">
-          {displayContent === "..." ? (
-            <View className="flex-row gap-1 items-center py-1">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: "#FFFFFF",
+            borderWidth: 1,
+            borderColor: "#E2E8F0",
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            borderRadius: 16,
+            borderTopLeftRadius: 4,
+          }}
+        >
+          {isEmpty ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <ActivityIndicator size="small" color="#94A3B8" />
-              <Text className="text-muted-foreground text-sm ml-2">
+              <RNText style={{ fontSize: 14, color: "#94A3B8" }}>
                 Thinking…
-              </Text>
+              </RNText>
             </View>
+          ) : message.isStreaming ? (
+            <RNText style={{ fontSize: 14, color: "#0F172A", lineHeight: 21 }}>
+              {message.content + "▌"}
+            </RNText>
           ) : (
-            <Markdown style={markdownStyles}>{displayContent}</Markdown>
+            <Markdown style={markdownStyles}>{message.content}</Markdown>
           )}
         </View>
       </View>
@@ -130,11 +161,7 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
   );
 }
 
-function EmptyState({
-  onPrompt,
-}: {
-  onPrompt: (text: string) => void;
-}) {
+function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
   return (
     <View className="flex-1 items-center justify-center px-6 pb-12">
       <View className="w-20 h-20 rounded-full bg-primary/10 items-center justify-center mb-5">
@@ -168,7 +195,7 @@ function EmptyState({
 
 export default function AssistantScreen() {
   const [input, setInput] = useState("");
-  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const { messages, isStreaming, sendMessage, clearMessages } = useAiChat();
 
   const { data: inventory = [], isLoading: inventoryLoading } = useQuery<
@@ -176,7 +203,7 @@ export default function AssistantScreen() {
   >({
     queryKey: ["inventory", "full"],
     queryFn: () => inventoryApi.getFull(),
-    staleTime: 1000 * 60 * 5, // 5 minutes — re-fetch only if stale
+    staleTime: 1000 * 60 * 5,
   });
 
   const handleSend = useCallback(
@@ -190,18 +217,8 @@ export default function AssistantScreen() {
   );
 
   const scrollToBottom = useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+    scrollViewRef.current?.scrollToEnd({ animated: true });
   }, []);
-
-  const renderItem = useCallback(
-    ({ item }: { item: ChatMessage }) =>
-      item.role === "user" ? (
-        <UserBubble content={item.content} />
-      ) : (
-        <AssistantBubble message={item} />
-      ),
-    [],
-  );
 
   const ClearButton = (
     <TouchableOpacity
@@ -210,7 +227,10 @@ export default function AssistantScreen() {
       className="rounded-full bg-muted p-2"
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <RotateCcw size={18} color={messages.length === 0 ? "#CBD5E1" : "#64748B"} />
+      <RotateCcw
+        size={18}
+        color={messages.length === 0 ? "#CBD5E1" : "#64748B"}
+      />
     </TouchableOpacity>
   );
 
@@ -239,16 +259,22 @@ export default function AssistantScreen() {
             <EmptyState onPrompt={(text) => void handleSend(text)} />
           </ScrollView>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
+          // Plain ScrollView + map instead of FlatList — avoids all FlatList
+          // item-caching issues when content updates rapidly during streaming.
+          <ScrollView
+            ref={scrollViewRef}
             onContentSizeChange={scrollToBottom}
-            onLayout={scrollToBottom}
             contentContainerStyle={{ paddingBottom: 8 }}
             keyboardShouldPersistTaps="handled"
-          />
+          >
+            {messages.map((msg) =>
+              msg.role === "user" ? (
+                <UserBubble key={msg.id} content={msg.content} />
+              ) : (
+                <AssistantBubble key={msg.id} message={msg} />
+              ),
+            )}
+          </ScrollView>
         )}
 
         {/* Input bar */}
@@ -269,9 +295,7 @@ export default function AssistantScreen() {
             onPress={() => void handleSend()}
             disabled={!input.trim() || isStreaming}
             className="w-10 h-10 rounded-full bg-primary items-center justify-center"
-            style={{
-              opacity: !input.trim() || isStreaming ? 0.4 : 1,
-            }}
+            style={{ opacity: !input.trim() || isStreaming ? 0.4 : 1 }}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             <SendHorizontal size={18} color="#fff" />

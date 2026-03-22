@@ -14,16 +14,6 @@ interface UseAiChatReturn {
   clearMessages: () => void;
 }
 
-/**
- * Manages the AI chat conversation state and handles streaming responses.
- *
- * The full inventory is passed per-message (sourced from TanStack Query cache)
- * so the backend never needs to hit the database — it just validates the JWT
- * and pipes the request to Claude.
- *
- * Conversation history is kept in local state and sent with each message,
- * making the backend completely stateless.
- */
 export function useAiChat(): UseAiChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -32,7 +22,6 @@ export function useAiChat(): UseAiChatReturn {
     async (text: string, inventory: FlatInventoryItem[]) => {
       if (isStreaming) return;
 
-      // Snapshot current history before adding new messages
       const historySnapshot = messages.map((m) => ({
         role: m.role,
         content: m.content,
@@ -46,49 +35,78 @@ export function useAiChat(): UseAiChatReturn {
         { id: userMsgId, role: "user", content: text },
         { id: aiMsgId, role: "assistant", content: "", isStreaming: true },
       ]);
-
       setIsStreaming(true);
 
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData.session?.access_token;
 
-        const response = await fetch(`${API_BASE_URL}/api/ai/chat`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            message: text,
-            inventory,
-            history: historySnapshot,
-          }),
-        });
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", `${API_BASE_URL}/api/ai/chat`);
+          xhr.setRequestHeader("Content-Type", "application/json");
+          if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          xhr.timeout = 60_000;
 
-        if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`);
-        }
+          // Tracks how many bytes of xhr.responseText we have already consumed
+          // so each onprogress call only appends the new delta.
+          let consumed = 0;
 
-        if (!response.body) {
-          throw new Error("Streaming is not supported in this environment");
-        }
+          xhr.onprogress = () => {
+            const chunk = xhr.responseText.slice(consumed);
+            consumed = xhr.responseText.length;
+            if (!chunk) return;
 
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === aiMsgId ? { ...m, content: m.content + chunk } : m,
+              ),
+            );
+          };
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+          xhr.onload = () => {
+            if (xhr.status >= 400) {
+              let errorMsg = `Request failed with status ${xhr.status}`;
+              try {
+                const parsed = JSON.parse(xhr.responseText) as {
+                  error?: string;
+                };
+                if (parsed.error) errorMsg = parsed.error;
+              } catch {
+                // non-JSON error body — keep the default message
+              }
+              reject(new Error(errorMsg));
+              return;
+            }
 
-          const chunk = decoder.decode(value, { stream: true });
+            // Final flush — drain any bytes that onprogress may have missed
+            const remaining = xhr.responseText.slice(consumed);
+            if (remaining) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === aiMsgId
+                    ? { ...m, content: m.content + remaining }
+                    : m,
+                ),
+              );
+            }
+            resolve();
+          };
 
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === aiMsgId ? { ...m, content: m.content + chunk } : m,
-            ),
+          xhr.onerror = () =>
+            reject(
+              new Error("Network error — please check your connection."),
+            );
+          xhr.ontimeout = () => reject(new Error("Request timed out."));
+
+          xhr.send(
+            JSON.stringify({
+              message: text,
+              inventory,
+              history: historySnapshot,
+            }),
           );
-        }
+        });
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "An unexpected error occurred.";

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { getAuthenticatedUserId } from "@/lib/auth/supabase-server";
-import { handleRouteError, UnauthorizedError } from "@/lib/errors";
+import { handleRouteError } from "@/lib/errors";
 import { aiConfig } from "@/lib/ai/config";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 
@@ -21,7 +21,6 @@ const flatInventoryItemSchema = z.object({
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
   inventory: z.array(flatInventoryItemSchema),
-  // Cap conversation history to keep token usage predictable
   history: z
     .array(
       z.object({
@@ -47,6 +46,13 @@ export async function POST(request: NextRequest) {
 
   const { message, inventory, history } = body;
 
+  console.log("[ai/chat] Request received —", {
+    model: aiConfig.model,
+    inventoryItems: inventory.length,
+    historyLength: history.length,
+    message: message.slice(0, 80),
+  });
+
   const client = new Anthropic({ apiKey: aiConfig.anthropicApiKey });
 
   const conversationMessages: Anthropic.MessageParam[] = [
@@ -63,6 +69,8 @@ export async function POST(request: NextRequest) {
 
   const readable = new ReadableStream({
     async start(controller) {
+      console.log("[ai/chat] ReadableStream start — calling Anthropic");
+
       try {
         const stream = client.messages.stream({
           model: aiConfig.model,
@@ -71,18 +79,32 @@ export async function POST(request: NextRequest) {
           messages: conversationMessages,
         });
 
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
-        }
+        let chunkCount = 0;
 
+        stream.on("text", (text) => {
+          controller.enqueue(encoder.encode(text));
+          chunkCount++;
+        });
+
+        stream.on("error", (err) => {
+          console.error("[ai/chat] stream error event:", err.message);
+        });
+
+        await stream.finalMessage();
+
+        console.log("[ai/chat] Stream complete — chunks sent:", chunkCount);
         controller.close();
       } catch (err) {
-        controller.error(err);
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[ai/chat] Caught error in stream:", msg);
+
+        const isCredits = msg.toLowerCase().includes("credit");
+        const userFacing = isCredits
+          ? "Lorgy is temporarily unavailable — the AI service account needs a top-up. Please try again later."
+          : `Sorry, I ran into an error: ${msg}`;
+
+        controller.enqueue(encoder.encode(userFacing));
+        controller.close();
       }
     },
   });
