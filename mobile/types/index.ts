@@ -147,6 +147,29 @@ export interface ItemWithLocation extends Item {
   cabinet: Cabinet & { location: Location };
 }
 
+// ── AI / Chat ────────────────────────────────────────────────────────────────
+
+/** Mirrors FlatInventoryItem from src/lib/ai/system-prompt.ts */
+export interface FlatInventoryItem {
+  location: string;
+  locationType: string;
+  cabinet: string;
+  shelf: string | null;
+  name: string;
+  type: string;
+  quantity: number;
+  description: string | null;
+  tags: string[];
+}
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  /** True while the assistant response is still streaming in */
+  isStreaming?: boolean;
+}
+
 // ── API response envelope ────────────────────────────────────────────────────
 
 export interface ApiSuccess<T> {

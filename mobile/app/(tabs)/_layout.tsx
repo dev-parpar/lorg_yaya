@@ -1,5 +1,5 @@
 import { Tabs, Redirect } from "expo-router";
-import { Home, Search, User } from "lucide-react-native";
+import { Home, Search, User, Sparkles } from "lucide-react-native";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { View, ActivityIndicator } from "react-native";
 
@@ -43,6 +43,13 @@ export default function TabsLayout() {
         options={{
           title: "Search",
           tabBarIcon: ({ color, size }) => <Search color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="assistant"
+        options={{
+          title: "Lorgy",
+          tabBarIcon: ({ color, size }) => <Sparkles color={color} size={size} />,
         }}
       />
       <Tabs.Screen
