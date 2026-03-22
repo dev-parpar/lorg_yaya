@@ -1,10 +1,52 @@
 import { useState, useCallback } from "react";
 import { Alert, ActionSheetIOS, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { supabase } from "@/lib/auth/supabase";
 import { API_BASE_URL } from "@/lib/constants";
 import type { DetectedItem, ItemType } from "@/types";
 import { ALL_ITEM_TYPES } from "@/types";
+
+/**
+ * Max dimension (width or height) we send to the vision API.
+ * Claude reads 1024px images accurately; beyond that we're just burning tokens.
+ * At 0.65 JPEG quality this keeps payloads under ~150 KB for typical photos.
+ */
+const MAX_IMAGE_DIMENSION = 1024;
+const IMAGE_QUALITY = 0.65;
+
+/**
+ * Resize + re-compress an image URI to stay within MAX_IMAGE_DIMENSION on its
+ * longest side at IMAGE_QUALITY. Always outputs JPEG for consistency.
+ * Returns { base64, mediaType }.
+ */
+async function prepareImage(
+  uri: string,
+  width: number,
+  height: number,
+): Promise<{ base64: string; mediaType: "image/jpeg" }> {
+  const longest = Math.max(width, height);
+  const actions: ImageManipulator.Action[] = [];
+
+  if (longest > MAX_IMAGE_DIMENSION) {
+    const scale = MAX_IMAGE_DIMENSION / longest;
+    actions.push({
+      resize: {
+        width: Math.round(width * scale),
+        height: Math.round(height * scale),
+      },
+    });
+  }
+
+  const result = await ImageManipulator.manipulateAsync(uri, actions, {
+    compress: IMAGE_QUALITY,
+    format: ImageManipulator.SaveFormat.JPEG,
+    base64: true,
+  });
+
+  if (!result.base64) throw new Error("Failed to process image.");
+  return { base64: result.base64, mediaType: "image/jpeg" };
+}
 
 interface RawIdentifiedItem {
   name: string;
@@ -52,9 +94,8 @@ export function useItemIdentifier() {
           try {
             pickerResult = await ImagePicker.launchCameraAsync({
               mediaTypes: "images",
-              quality: 0.75,
+              quality: 1,       // full quality — manipulator handles compression
               allowsEditing: false,
-              base64: true,
             });
           } catch {
             Alert.alert(
@@ -74,22 +115,25 @@ export function useItemIdentifier() {
           }
           pickerResult = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: "images",
-            quality: 0.75,
+            quality: 1,         // full quality — manipulator handles compression
             allowsEditing: false,
-            base64: true,
           });
         }
 
         if (!pickerResult || pickerResult.canceled || !pickerResult.assets[0]) return;
 
         const asset = pickerResult.assets[0];
-        if (!asset.base64) {
-          Alert.alert("Error", "Could not read image data. Please try again.");
-          return;
-        }
 
         setIsIdentifying(true);
         try {
+          // Resize + recompress to JPEG before encoding — keeps payload small
+          // regardless of what the user picked (4K photo, PNG screenshot, etc.).
+          const { base64: imageBase64, mediaType } = await prepareImage(
+            asset.uri,
+            asset.width ?? MAX_IMAGE_DIMENSION,
+            asset.height ?? MAX_IMAGE_DIMENSION,
+          );
+
           const { data: sessionData } = await supabase.auth.getSession();
           const token = sessionData.session?.access_token;
 
@@ -100,8 +144,8 @@ export function useItemIdentifier() {
               ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             body: JSON.stringify({
-              imageBase64: asset.base64,
-              mediaType: "image/jpeg",
+              imageBase64,
+              mediaType,
               cabinetId,
             }),
           });
