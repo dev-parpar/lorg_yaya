@@ -334,8 +334,11 @@ export default function CabinetDetailScreen() {
       if (index === 0 || index === 1) {
         // Photo flows — delegate source picking to the hook
         showSourcePicker(cabinetId, (items) => {
+          console.log("[CabinetScreen] onResult fired, items count:", items.length);
+          console.log("[CabinetScreen] items:", JSON.stringify(items));
           setScannedItems(items);
           setShowReviewModal(true);
+          console.log("[CabinetScreen] showReviewModal set to true");
         });
       } else if (index === 2) {
         setShowItemForm(true);

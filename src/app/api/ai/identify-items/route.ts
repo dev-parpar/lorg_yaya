@@ -31,12 +31,14 @@ interface RawDetection {
   name: string;
   type: string;
   confidence: number;
+  quantity: number;
 }
 
 export interface IdentifiedItem {
   name: string;
   type: string;
   confidence: number;
+  quantity: number;
   isDuplicate: boolean;
   existingItemId: string | null;
   existingQty: number | null;
@@ -80,17 +82,18 @@ export async function POST(request: NextRequest) {
               text: `Identify all distinct items visible in this photo.
 
 Return a JSON array of objects. Each object must have exactly these fields:
-- "name": string — concise human-readable name (e.g. "Campbell's Tomato Soup", "Claw Hammer", "AAA Batteries x4")
+- "name": string — concise human-readable name, never include a count in the name (e.g. "Campbell's Tomato Soup", "Claw Hammer", "AAA Battery")
 - "type": one of exactly: FOOD, GAME, SPORTS, ELECTRONICS, UTENSILS, CUTLERY, FIRST_AID, CLOTHES, ACCESSORIES, SHOES, OTHER
 - "confidence": number 0–1 — your confidence you identified this item correctly
+- "quantity": integer — how many of this item are visible (e.g. 3 cans of soup → quantity 3)
 
 Rules:
-- If you see multiple identical items, produce one entry with the count in the name (e.g. "Soup Can x3")
+- If you see multiple identical items, use ONE entry with the correct quantity — never encode the count in the name
 - Use "Unknown Object" for anything you cannot identify, with type OTHER and low confidence
 - Return ONLY the raw JSON array — no markdown, no code fences, no explanation
 - Return [] if no items are visible
 
-Example: [{"name":"Claw Hammer","type":"OTHER","confidence":0.91},{"name":"WD-40 Spray","type":"OTHER","confidence":0.85}]`,
+Example: [{"name":"Campbell's Tomato Soup","type":"FOOD","confidence":0.94,"quantity":3},{"name":"Claw Hammer","type":"OTHER","confidence":0.91,"quantity":1}]`,
             },
           ],
         },
@@ -129,13 +132,14 @@ Example: [{"name":"Claw Hammer","type":"OTHER","confidence":0.91},{"name":"WD-40
       );
     }
 
-    // Clamp confidence and normalise item types to our enum
+    // Clamp confidence, normalise item types, and ensure quantity is a positive integer
     detections = detections.map((d) => ({
       name: d.name ?? "Unknown Item",
       type: ITEM_TYPE_VALUES.includes(d.type as (typeof ITEM_TYPE_VALUES)[number])
         ? d.type
         : "OTHER",
       confidence: Math.min(1, Math.max(0, Number(d.confidence) || 0)),
+      quantity: Math.max(1, Math.round(Number(d.quantity) || 1)),
     }));
 
     console.log("[identify-items] Detected:", detections.length, "items");
@@ -233,6 +237,7 @@ Return ONLY the raw JSON array — no markdown, no explanation.`,
         name: d.name,
         type: d.type,
         confidence: d.confidence,
+        quantity: d.quantity,
         isDuplicate: dup.isDuplicate,
         existingItemId: dup.matchedItemId,
         existingQty: dup.matchedItemQty,

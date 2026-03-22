@@ -203,7 +203,9 @@ export function ItemReviewModal({
   // only fires once at mount time (when detectedItems is still []). Sync whenever
   // the modal opens with a fresh set of detections.
   useEffect(() => {
+    console.log("[ItemReviewModal] useEffect — visible:", visible, "detectedItems.length:", detectedItems.length);
     if (visible && detectedItems.length > 0) {
+      console.log("[ItemReviewModal] setting rows:", JSON.stringify(detectedItems));
       setRows(detectedItems);
     }
   }, [visible, detectedItems]);
@@ -304,6 +306,8 @@ export function ItemReviewModal({
   }
 
   const activeCount = rows.filter((r) => !r.skipped && r.name.trim().length > 0).length;
+
+  console.log("[ItemReviewModal] render — visible:", visible, "rows.length:", rows.length);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">

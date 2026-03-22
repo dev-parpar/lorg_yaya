@@ -52,6 +52,7 @@ interface RawIdentifiedItem {
   name: string;
   type: string;
   confidence: number;
+  quantity: number;
   isDuplicate: boolean;
   existingItemId: string | null;
   existingQty: number | null;
@@ -159,9 +160,19 @@ export function useItemIdentifier() {
             );
           }
 
-          const json = (await response.json()) as { data: RawIdentifiedItem[] };
+          const rawBody = await response.text();
+          console.log("[useItemIdentifier] raw response body:", rawBody.slice(0, 300));
 
-          if (json.data.length === 0) {
+          let json: { data: RawIdentifiedItem[] };
+          try {
+            json = JSON.parse(rawBody) as { data: RawIdentifiedItem[] };
+          } catch (parseErr) {
+            throw new Error(`Response parse failed: ${(parseErr as Error).message}`);
+          }
+
+          console.log("[useItemIdentifier] json.data:", JSON.stringify(json.data));
+
+          if (!json.data || json.data.length === 0) {
             Alert.alert(
               "No items detected",
               "Lorgy couldn't identify any items in that photo. Try a clearer shot or type items manually.",
@@ -176,7 +187,7 @@ export function useItemIdentifier() {
               ? d.type
               : "OTHER") as ItemType,
             confidence: d.confidence,
-            quantity: 1,
+            quantity: Math.max(1, Math.round(Number(d.quantity) || 1)),
             isDuplicate: d.isDuplicate,
             existingItemId: d.existingItemId,
             existingQty: d.existingQty,
@@ -184,7 +195,10 @@ export function useItemIdentifier() {
             incrementInstead: d.isDuplicate,
           }));
 
+          console.log("[useItemIdentifier] mapped items count:", items.length);
+          console.log("[useItemIdentifier] calling onResult...");
           onResult(items);
+          console.log("[useItemIdentifier] onResult called");
         } catch (e) {
           Alert.alert(
             "Scan failed",
