@@ -1,6 +1,8 @@
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Minus, Plus } from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "@/components/ui/text";
+import { COLORS, GRADIENTS, RADII, SHADOWS } from "@/lib/theme/tokens";
 
 interface QuantityStepperProps {
   value: number;
@@ -10,7 +12,9 @@ interface QuantityStepperProps {
 }
 
 /**
- * Compact − value + stepper used in both the single-item and bulk-add forms.
+ * Skeuomorphic wooden +/− stepper.
+ * Each button uses the outline button gradient (cream paper look) with a
+ * depth edge. The value is displayed on a matching paper swatch.
  */
 export function QuantityStepper({
   value,
@@ -18,29 +22,104 @@ export function QuantityStepper({
   min = 1,
   max = 9999,
 }: QuantityStepperProps) {
+  const atMin = value <= min;
+  const atMax = value >= max;
+
   return (
-    <View className="flex-row items-center gap-1">
-      <TouchableOpacity
+    <View style={styles.row}>
+      <StepButton
         onPress={() => onChange(Math.max(min, value - 1))}
-        disabled={value <= min}
-        className="rounded-lg bg-muted p-1.5"
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        disabled={atMin}
       >
-        <Minus size={14} color={value <= min ? "#CBD5E1" : "#0F172A"} />
-      </TouchableOpacity>
+        <Minus size={14} color={atMin ? COLORS.muted : COLORS.foreground} />
+      </StepButton>
 
-      <Text variant="body" className="font-semibold w-7 text-center">
-        {value}
-      </Text>
+      <View style={styles.valueShadow}>
+        <LinearGradient
+          colors={GRADIENTS.outlineButton}
+          style={styles.valueBox}
+        >
+          <Text style={styles.valueText}>{value}</Text>
+        </LinearGradient>
+      </View>
 
-      <TouchableOpacity
+      <StepButton
         onPress={() => onChange(Math.min(max, value + 1))}
-        disabled={value >= max}
-        className="rounded-lg bg-muted p-1.5"
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        disabled={atMax}
       >
-        <Plus size={14} color={value >= max ? "#CBD5E1" : "#0F172A"} />
-      </TouchableOpacity>
+        <Plus size={14} color={atMax ? COLORS.muted : COLORS.foreground} />
+      </StepButton>
     </View>
   );
 }
+
+function StepButton({
+  onPress,
+  disabled,
+  children,
+}: {
+  onPress: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.8}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      style={disabled ? { opacity: 0.45 } : undefined}
+    >
+      <View style={styles.btnDepth}>
+        <LinearGradient
+          colors={GRADIENTS.outlineButton}
+          style={styles.btnGradient}
+        >
+          {children}
+        </LinearGradient>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  btnDepth: {
+    ...SHADOWS.button,
+    borderRadius: RADII.button,
+    borderWidth: 1,
+    borderBottomWidth: 3,
+    borderColor: COLORS.outlineDepth,
+  },
+  btnGradient: {
+    borderRadius: RADII.button - 1,
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  valueShadow: {
+    ...SHADOWS.input,
+    borderRadius: RADII.input,
+  },
+  valueBox: {
+    borderRadius: RADII.input,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    width: 36,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  valueText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.foreground,
+  },
+});

@@ -1,6 +1,7 @@
 import { KeyboardAvoidingView, Platform, ScrollView, View, ViewStyle } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { ReactNode } from "react";
+import { CorkBackground } from "./backgrounds/CorkBackground";
 
 interface ScreenProps {
   children: ReactNode;
@@ -13,10 +14,9 @@ interface ScreenProps {
   style?: ViewStyle;
   /**
    * Which edges should be padded for safe area.
-   * Defaults to top + left + right; bottom is intentionally excluded so
-   * the tab bar (which already respects safe area internally) is not
-   * double-padded. Pass `["top","left","right","bottom"]` for full-screen
-   * modal flows that have no tab bar.
+   * Defaults to top + left + right; bottom is excluded so the tab bar
+   * (which already respects safe area internally) is not double-padded.
+   * Pass all four edges for full-screen modal flows without a tab bar.
    */
   edges?: Edge[];
 }
@@ -24,12 +24,11 @@ interface ScreenProps {
 export function Screen({
   children,
   scroll = true,
-  className = "",
   style,
   edges = ["top", "left", "right"],
 }: ScreenProps) {
   const content = (
-    <View className={`flex-1 bg-background px-4 pt-4 ${className}`} style={style}>
+    <View style={[{ flex: 1, paddingHorizontal: 16, paddingTop: 16 }, style]}>
       {children}
     </View>
   );
@@ -41,7 +40,7 @@ export function Screen({
       keyboardVerticalOffset={Platform.OS === "android" ? 24 : 0}
     >
       <ScrollView
-        className="flex-1"
+        style={{ flex: 1 }}
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -54,8 +53,12 @@ export function Screen({
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={edges}>
-      {body}
+    // SafeAreaView background matches cork so the area behind the status bar
+    // is the same colour as the rest of the screen.
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#8B6D47" }} edges={edges}>
+      <CorkBackground style={{ flex: 1 }}>
+        {body}
+      </CorkBackground>
     </SafeAreaView>
   );
 }

@@ -1,15 +1,15 @@
-import { View, TouchableOpacity } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Bell } from "lucide-react-native";
 import { useQuery } from "@tanstack/react-query";
 import { invitesApi } from "@/lib/api/invites";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { Text } from "./text";
+import { COLORS } from "@/lib/theme/tokens";
 
 /**
- * Persistent notification bell shown in every top-level screen header.
- * Displays a red badge with the count of pending location invites and
- * navigates to the notifications screen on press.
+ * Notification bell shown in every top-level screen header.
+ * Styled with the cork-board theme: brass-coloured bell, red badge.
  */
 export function NotificationBell() {
   const router = useRouter();
@@ -19,7 +19,6 @@ export function NotificationBell() {
     queryKey: ["invites"],
     queryFn: invitesApi.list,
     enabled: !!user,
-    // Refresh every 60 s so the badge stays current without a full reload
     refetchInterval: 60_000,
   });
 
@@ -28,20 +27,17 @@ export function NotificationBell() {
   return (
     <TouchableOpacity
       onPress={() => router.push("/(tabs)/locations/invites")}
-      className="relative p-2"
+      style={styles.btn}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       accessibilityLabel={
         count > 0 ? `${count} pending notification${count !== 1 ? "s" : ""}` : "Notifications"
       }
     >
-      <Bell size={22} color="#0F172A" />
+      <Bell size={22} color={COLORS.foreground} />
 
       {count > 0 && (
-        <View
-          className="absolute top-0.5 right-0.5 bg-red-500 rounded-full items-center justify-center"
-          style={{ minWidth: 16, height: 16, paddingHorizontal: 3 }}
-        >
-          <Text className="text-white font-bold" style={{ fontSize: 10, lineHeight: 14 }}>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>
             {count > 99 ? "99+" : count}
           </Text>
         </View>
@@ -49,3 +45,33 @@ export function NotificationBell() {
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  btn: {
+    padding: 8,
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 1,
+    elevation: 3,
+  },
+  badgeText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "700",
+    color: COLORS.primaryForeground,
+  },
+});

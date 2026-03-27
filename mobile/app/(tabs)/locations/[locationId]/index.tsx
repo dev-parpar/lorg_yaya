@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Package, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
+import { COLORS } from "@/lib/theme/tokens";
 import { cabinetsApi } from "@/lib/api/cabinets";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
@@ -127,8 +128,8 @@ function CabinetCard({
             cachePolicy="disk"
           />
         ) : (
-          <View className="rounded-xl bg-blue-50 p-3">
-            <Package size={22} color="#2563EB" />
+          <View className="rounded-xl bg-primary/10 p-3">
+            <Package size={22} color={COLORS.primary} />
           </View>
         )}
         <View className="flex-1">
@@ -142,7 +143,7 @@ function CabinetCard({
         </View>
         <View className="flex-row items-center gap-1">
           <TouchableOpacity onPress={onEdit} className="p-2">
-            <Pencil size={16} color="#64748B" />
+            <Pencil size={16} color={COLORS.mutedForeground} />
           </TouchableOpacity>
           <Button onPress={onDelete} variant="ghost" className="px-2">
             <Text className="text-destructive text-xs">Delete</Text>
@@ -218,7 +219,7 @@ export default function LocationDetailScreen() {
       <Screen scroll={false}>
         <PageHeader title="Cabinets" showBack />
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </Screen>
     );

@@ -3,6 +3,7 @@ import { FlatList, View, ActivityIndicator } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, Package2 } from "lucide-react-native";
 import { itemsApi } from "@/lib/api/items";
+import { COLORS } from "@/lib/theme/tokens";
 import type { ItemWithLocation } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -36,7 +37,7 @@ function SearchResultCard({ item }: { item: ItemWithLocation }) {
     <Card className="mb-3">
       <View className="flex-row items-start gap-3">
         <View className="rounded-xl bg-muted p-2.5 mt-0.5">
-          <Package2 size={18} color="#64748B" />
+          <Package2 size={18} color={COLORS.mutedForeground} />
         </View>
         <View className="flex-1">
           <Text variant="h3">{item.name}</Text>
@@ -84,7 +85,7 @@ export default function SearchScreen() {
 
       {isLoading && showResults && (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       )}
 
@@ -107,7 +108,7 @@ export default function SearchScreen() {
 
       {!showResults && (
         <View className="flex-1 items-center justify-center">
-          <SearchIcon size={48} color="#CBD5E1" />
+          <SearchIcon size={48} color={COLORS.muted} />
           <Text variant="muted" className="mt-4 text-center">
             Type at least 2 characters to search
           </Text>

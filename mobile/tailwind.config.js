@@ -5,15 +5,28 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#2563EB",
+        // Cork board surface
+        cork: "#8B6D47",
+        // Cream note-card paper
+        background: "#8B6D47",   // screens sit on cork
+        card: "#FFFDE7",         // note-card cream
+        foreground: "#2C1810",   // dark ink
+        // Interactions
+        primary: "#B91C1C",
         "primary-foreground": "#FFFFFF",
-        background: "#F8FAFC",
-        foreground: "#0F172A",
-        muted: "#F1F5F9",
-        "muted-foreground": "#64748B",
-        border: "#E2E8F0",
-        destructive: "#EF4444",
-        card: "#FFFFFF",
+        // Surfaces
+        muted: "#C8A77D",
+        "muted-foreground": "#6B4A2C",
+        border: "#B8914B",
+        // Destructive
+        destructive: "#7F1D1D",
+        "destructive-foreground": "#FFFFFF",
+        // Tab accents
+        "tab-brass": "#D4A853",
+        "tab-wood": "#1A0E06",
+      },
+      fontFamily: {
+        typewriter: ["SpecialElite_400Regular"],
       },
     },
   },

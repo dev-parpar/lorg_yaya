@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Home, Building2, Users, Plus, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
+import { COLORS } from "@/lib/theme/tokens";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import { EntityPhoto } from "@/components/ui/entity-photo";
@@ -165,7 +166,7 @@ function LocationCard({
           />
         ) : (
           <View className="rounded-xl bg-primary/10 p-3">
-            <Icon size={22} color="#2563EB" />
+            <Icon size={22} color={COLORS.primary} />
           </View>
         )}
 
@@ -173,8 +174,8 @@ function LocationCard({
           <View className="flex-row items-center gap-2">
             <Text variant="h3">{location.name}</Text>
             {!isOwner && (
-              <View className="bg-amber-100 rounded px-1.5 py-0.5">
-                <Text className="text-amber-700 text-xs font-medium">Shared</Text>
+              <View style={{ backgroundColor: "rgba(212,168,83,0.25)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: COLORS.warning, fontSize: 11, fontWeight: "600" }}>Shared</Text>
               </View>
             )}
           </View>
@@ -188,12 +189,12 @@ function LocationCard({
           )}
         </View>
 
-        <View className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-1">
           <TouchableOpacity onPress={onMembers} className="p-2">
-            <Users size={16} color="#64748B" />
+            <Users size={16} color={COLORS.mutedForeground} />
           </TouchableOpacity>
           <TouchableOpacity onPress={onEdit} className="p-2">
-            <Pencil size={16} color="#64748B" />
+            <Pencil size={16} color={COLORS.mutedForeground} />
           </TouchableOpacity>
           {isOwner && (
             <Button onPress={onDelete} variant="ghost" className="px-2">
@@ -264,7 +265,7 @@ export default function LocationsScreen() {
         className="bg-primary rounded-full p-2.5 ml-1"
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Plus size={20} color="#fff" />
+        <Plus size={20} color={COLORS.primaryForeground} />
       </TouchableOpacity>
     </View>
   );
@@ -274,7 +275,7 @@ export default function LocationsScreen() {
       <Screen scroll={false}>
         <PageHeader title="Locations" rightElement={headerRight} />
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </Screen>
     );
