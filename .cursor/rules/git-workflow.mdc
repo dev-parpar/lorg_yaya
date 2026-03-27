@@ -1,0 +1,33 @@
+---
+description: Git branching workflow — never commit directly to main
+alwaysApply: true
+---
+
+# Git Workflow
+
+## Branching
+
+- **NEVER commit directly to `main`.**
+- Always create a feature branch before making any code changes.
+- Branch naming: `feature/<short-description>` or `fix/<short-description>`.
+
+```bash
+# ✅ CORRECT
+git checkout -b feature/cv-item-scan
+# ... make changes ...
+git add -A && git commit -m "feat: ..."
+
+# ❌ WRONG — committing directly to main
+git add -A && git commit -m "feat: ..."   # while on main
+```
+
+## Commit messages
+
+- Use conventional commits: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`.
+- One logical unit per commit.
+
+## When to branch
+
+- Every new feature → `feature/...`
+- Every bug fix → `fix/...`
+- Schema changes → `feature/...` (never directly on main)
