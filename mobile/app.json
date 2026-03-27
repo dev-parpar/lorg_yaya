@@ -12,6 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "updates": {
+       "url": "https://u.expo.dev/3a2f1d79-4dc1-4813-ac17-ad95c2d09584"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.lorgyaya.app"
@@ -21,7 +24,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.lorgyaya.app"
+      "package": "com.lorgyaya.app",
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro",
