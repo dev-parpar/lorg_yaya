@@ -245,6 +245,9 @@ export default function CabinetDetailScreen() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const { isIdentifying, showSourcePicker } = useItemIdentifier();
 
+  // Android add-item action sheet (replaces Alert which can't be dismissed by tapping outside)
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
   // Item edit modal
   const [editingItem, setEditingItem] = useState<Item | null>(null);
 
@@ -310,7 +313,14 @@ export default function CabinetDetailScreen() {
   function handleCreateItem() {
     if (!itemName.trim()) { setFormError("Item name is required."); return; }
     setFormError(null);
-    createItemMutation.mutate({ cabinetId, name: itemName.trim(), quantity: parseInt(itemQty, 10) || 1, itemType });
+    createItemMutation.mutate({
+      cabinetId,
+      // When the user is viewing a specific shelf, pre-assign the item to it
+      ...(shelfFilter ? { shelfId: shelfFilter } : {}),
+      name: itemName.trim(),
+      quantity: parseInt(itemQty, 10) || 1,
+      itemType,
+    });
   }
 
   function confirmDeleteItem(id: string, name: string) {
@@ -322,24 +332,11 @@ export default function CabinetDetailScreen() {
 
   /** Show an action sheet so the user picks how to add items. */
   function promptAddItem() {
-    const options = [
-      "📷  Scan with camera",
-      "🖼   Choose from library",
-      "✏️   Add single item",
-      "📋  Add multiple items",
-      "Cancel",
-    ];
-    const cancelIndex = options.length - 1;
-
     function handleChoice(index: number) {
       if (index === 0 || index === 1) {
-        // Photo flows — delegate source picking to the hook
         showSourcePicker(cabinetId, (items) => {
-          console.log("[CabinetScreen] onResult fired, items count:", items.length);
-          console.log("[CabinetScreen] items:", JSON.stringify(items));
           setScannedItems(items);
           setShowReviewModal(true);
-          console.log("[CabinetScreen] showReviewModal set to true");
         });
       } else if (index === 2) {
         setShowItemForm(true);
@@ -350,17 +347,22 @@ export default function CabinetDetailScreen() {
 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: cancelIndex },
+        {
+          options: [
+            "📷  Scan with camera",
+            "🖼   Choose from library",
+            "✏️   Add single item",
+            "📋  Add multiple items",
+            "Cancel",
+          ],
+          cancelButtonIndex: 4,
+        },
         handleChoice,
       );
     } else {
-      Alert.alert("Add Items", undefined, [
-        { text: "Scan with camera", onPress: () => handleChoice(0) },
-        { text: "Choose from library", onPress: () => handleChoice(1) },
-        { text: "Add single item", onPress: () => handleChoice(2) },
-        { text: "Add multiple items", onPress: () => handleChoice(3) },
-        { text: "Cancel", style: "cancel" },
-      ]);
+      // On Android, Alert.alert can't be dismissed by tapping outside.
+      // Use our own bottom-sheet-style modal instead.
+      setShowAddMenu(true);
     }
   }
 
@@ -686,6 +688,52 @@ export default function CabinetDetailScreen() {
         }}
         queryKey={["items", cabinetId, shelfFilter]}
       />
+
+      {/* ── Android add-item menu (dismissible by tapping backdrop) ──────── */}
+      <Modal
+        visible={showAddMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddMenu(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
+          activeOpacity={1}
+          onPress={() => setShowAddMenu(false)}
+        >
+          {/* Stop propagation so tapping inside the sheet doesn't dismiss */}
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 32 }}>
+              <View style={{ alignItems: "center", paddingVertical: 8 }}>
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "#E2E8F0" }} />
+              </View>
+              <Text variant="caption" className="font-semibold uppercase tracking-widest text-center mb-2 text-muted-foreground">
+                Add Items
+              </Text>
+              {[
+                { label: "📷  Scan with camera", onPress: () => { setShowAddMenu(false); showSourcePicker(cabinetId, (items) => { setScannedItems(items); setShowReviewModal(true); }); } },
+                { label: "🖼   Choose from library", onPress: () => { setShowAddMenu(false); showSourcePicker(cabinetId, (items) => { setScannedItems(items); setShowReviewModal(true); }); } },
+                { label: "✏️   Add single item", onPress: () => { setShowAddMenu(false); setShowItemForm(true); } },
+                { label: "📋  Add multiple items", onPress: () => { setShowAddMenu(false); setShowBulkForm(true); } },
+              ].map(({ label, onPress }) => (
+                <TouchableOpacity
+                  key={label}
+                  onPress={onPress}
+                  style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}
+                >
+                  <Text variant="body">{label}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                onPress={() => setShowAddMenu(false)}
+                style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: "#F1F5F9", marginTop: 4 }}
+              >
+                <Text variant="body" className="text-muted-foreground text-center">Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </Screen>
   );
 }
