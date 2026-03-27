@@ -4,13 +4,14 @@ import { Mail } from "lucide-react-native";
 import { Screen } from "@/components/ui/screen";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
+import { COLORS } from "@/lib/theme/tokens";
 
 export default function VerifyEmailScreen() {
   return (
     <Screen scroll={false}>
       <View className="flex-1 justify-center items-center px-4">
         <View className="rounded-full bg-primary/10 p-6 mb-6">
-          <Mail size={48} color="#2563EB" />
+          <Mail size={48} color={COLORS.primary} />
         </View>
 
         <Text variant="h2" className="text-center mb-3">

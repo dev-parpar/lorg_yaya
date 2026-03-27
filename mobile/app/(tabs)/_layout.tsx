@@ -3,24 +3,23 @@ import { Home, Search, User, Sparkles } from "lucide-react-native";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { View, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { WoodStrip } from "@/components/ui/backgrounds/WoodStrip";
+import { COLORS } from "@/lib/theme/tokens";
 
 export default function TabsLayout() {
   const { session, isLoading } = useAuthStore();
   const insets = useSafeAreaInsets();
-  // On Android the bottom inset covers the gesture navigation bar.
-  // React Navigation adds it automatically when SafeAreaProvider is present,
-  // but we set an explicit minimum height so the tab bar is never clipped.
+
   const tabBarHeight = Platform.OS === "android" ? 56 + insets.bottom : undefined;
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#2563EB" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.cork }}>
+        <ActivityIndicator size="large" color={COLORS.card} />
       </View>
     );
   }
 
-  // Not authenticated — redirect to login
   if (!session) {
     return <Redirect href="/(auth)/login" />;
   }
@@ -29,13 +28,22 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#2563EB",
-        tabBarInactiveTintColor: "#64748B",
+        tabBarActiveTintColor: COLORS.tabBrass,
+        tabBarInactiveTintColor: COLORS.tabInactive,
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopColor: "#E2E8F0",
           height: tabBarHeight,
           paddingBottom: insets.bottom,
+          borderTopWidth: 1,
+          borderTopColor: "rgba(212, 168, 83, 0.3)",
+        },
+        // Dark walnut wood strip as the tab bar background
+        tabBarBackground: () => (
+          <WoodStrip style={{ flex: 1 }} />
+        ),
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0.2,
         },
       }}
     >

@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layers, Package2, ChevronRight, ArrowRightLeft, Pencil, ScanLine } from "lucide-react-native";
 import { cabinetsApi } from "@/lib/api/cabinets";
+import { COLORS } from "@/lib/theme/tokens";
 import { itemsApi } from "@/lib/api/items";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
@@ -373,7 +374,7 @@ export default function CabinetDetailScreen() {
       <Screen scroll={false}>
         <PageHeader title="Cabinet" showBack />
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       </Screen>
     );
@@ -445,16 +446,16 @@ export default function CabinetDetailScreen() {
                       cachePolicy="disk"
                     />
                   ) : (
-                    <Layers size={18} color="#2563EB" />
+                    <Layers size={18} color={COLORS.primary} />
                   )}
                   <View className="flex-1">
                     <Text variant="body" className="font-medium">{shelf.name}</Text>
                     <Text variant="caption">{shelf._count.items} item(s) · position {shelf.position}</Text>
                   </View>
                   <TouchableOpacity onPress={() => setEditingShelf(shelf)} className="p-2">
-                    <Pencil size={15} color="#64748B" />
+                    <Pencil size={15} color={COLORS.mutedForeground} />
                   </TouchableOpacity>
-                  <ChevronRight size={16} color="#94A3B8" />
+                  <ChevronRight size={16} color={COLORS.muted} />
                 </View>
               </Card>
             );
@@ -472,7 +473,7 @@ export default function CabinetDetailScreen() {
                     cachePolicy="disk"
                   />
                 ) : (
-                  <Package2 size={18} color="#64748B" />
+                  <Package2 size={18} color={COLORS.mutedForeground} />
                 )}
                 <View className="flex-1">
                   <Text variant="body" className="font-medium">{itm.name}</Text>
@@ -498,13 +499,13 @@ export default function CabinetDetailScreen() {
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <View className="flex-row items-center gap-1">
-                        <ArrowRightLeft size={12} color="#2563EB" />
+                        <ArrowRightLeft size={12} color={COLORS.primary} />
                         <Text variant="caption" className="text-primary font-medium">Assign</Text>
                       </View>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity onPress={() => setEditingItem(itm)} className="p-2">
-                    <Pencil size={15} color="#64748B" />
+                    <Pencil size={15} color={COLORS.mutedForeground} />
                   </TouchableOpacity>
                   <Button onPress={() => confirmDeleteItem(itm.id, itm.name)} variant="ghost" className="px-2">
                     <Text className="text-destructive text-xs">Del</Text>
@@ -541,12 +542,12 @@ export default function CabinetDetailScreen() {
                 className="mb-3"
               >
                 <View className="flex-row items-center gap-3">
-                  <Layers size={18} color="#2563EB" />
+                  <Layers size={18} color={COLORS.primary} />
                   <View className="flex-1">
                     <Text variant="body" className="font-medium">{shelf.name}</Text>
                     <Text variant="caption">{shelf._count.items} item(s) already here</Text>
                   </View>
-                  {assignShelfMutation.isPending && <ActivityIndicator size="small" color="#2563EB" />}
+                  {assignShelfMutation.isPending && <ActivityIndicator size="small" color={COLORS.primary} />}
                 </View>
               </Card>
             )}
@@ -666,10 +667,10 @@ export default function CabinetDetailScreen() {
             gap: 16,
           }}
         >
-          <ActivityIndicator size="large" color="#FFFFFF" />
+          <ActivityIndicator size="large" color={COLORS.card} />
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <ScanLine size={20} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>
+            <ScanLine size={20} color={COLORS.card} />
+            <Text style={{ color: COLORS.card, fontSize: 16, fontWeight: "600" }}>
               Identifying items…
             </Text>
           </View>
@@ -703,9 +704,9 @@ export default function CabinetDetailScreen() {
         >
           {/* Stop propagation so tapping inside the sheet doesn't dismiss */}
           <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 32 }}>
+            <View style={{ backgroundColor: COLORS.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: 32, borderTopWidth: 2, borderColor: COLORS.border }}>
               <View style={{ alignItems: "center", paddingVertical: 8 }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "#E2E8F0" }} />
+                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: COLORS.muted }} />
               </View>
               <Text variant="caption" className="font-semibold uppercase tracking-widest text-center mb-2 text-muted-foreground">
                 Add Items
@@ -719,14 +720,14 @@ export default function CabinetDetailScreen() {
                 <TouchableOpacity
                   key={label}
                   onPress={onPress}
-                  style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}
+                  style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: COLORS.border }}
                 >
                   <Text variant="body">{label}</Text>
                 </TouchableOpacity>
               ))}
               <TouchableOpacity
                 onPress={() => setShowAddMenu(false)}
-                style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: "#F1F5F9", marginTop: 4 }}
+                style={{ paddingVertical: 16, paddingHorizontal: 24, borderTopWidth: 1, borderTopColor: COLORS.border, marginTop: 4 }}
               >
                 <Text variant="body" className="text-muted-foreground text-center">Cancel</Text>
               </TouchableOpacity>

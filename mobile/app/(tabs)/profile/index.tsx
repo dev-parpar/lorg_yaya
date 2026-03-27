@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { User, Mail, LogOut, AtSign, Trash2, Pencil } from "lucide-react-native";
+import { COLORS } from "@/lib/theme/tokens";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import type { Profile } from "@/types";
 
@@ -189,12 +190,12 @@ export default function ProfileScreen() {
             {user?.user_metadata?.full_name ?? profile?.username ?? "Inventory Owner"}
           </Text>
           <View className="flex-row items-center gap-1.5 mt-2">
-            <Mail size={14} color="#64748B" />
+            <Mail size={14} color={COLORS.mutedForeground} />
             <Text variant="caption">{user?.email}</Text>
           </View>
           {profile?.username && (
             <View className="flex-row items-center gap-1.5 mt-1">
-              <AtSign size={14} color="#64748B" />
+              <AtSign size={14} color={COLORS.mutedForeground} />
               <Text variant="caption">{profile.username}</Text>
             </View>
           )}
@@ -202,7 +203,7 @@ export default function ProfileScreen() {
 
         <Button onPress={openEdit} variant="outline" className="mx-2 mb-2">
           <View className="flex-row items-center gap-2">
-            <Pencil size={15} color="#0F172A" />
+            <Pencil size={15} color={COLORS.foreground} />
             <Text className="text-foreground font-semibold">Edit profile</Text>
           </View>
         </Button>
@@ -225,15 +226,15 @@ export default function ProfileScreen() {
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
       <Button onPress={handleSignOut} variant="outline" className="mb-3">
-        <View className="flex-row items-center gap-2">
-          <LogOut size={16} color="#0F172A" />
+          <View className="flex-row items-center gap-2">
+            <LogOut size={16} color={COLORS.foreground} />
           <Text className="text-foreground font-semibold">Sign out</Text>
         </View>
       </Button>
 
       <Button onPress={handleDeleteAccount} variant="destructive" loading={deletingAccount} disabled={deletingAccount}>
-        <View className="flex-row items-center gap-2">
-          <Trash2 size={16} color="#fff" />
+          <View className="flex-row items-center gap-2">
+            <Trash2 size={16} color={COLORS.primaryForeground} />
           <Text className="text-white font-semibold">
             {deletingAccount ? "Deleting…" : "Delete account"}
           </Text>
