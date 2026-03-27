@@ -4,13 +4,12 @@ import {
   Modal,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActionSheetIOS,
   Platform,
   TextInput as RNTextInput,
   ActivityIndicator,
 } from "react-native";
-import { AlertTriangle, Trash2, ChevronDown, CheckCircle2 } from "lucide-react-native";
+import { AlertTriangle, Trash2, ChevronDown, CheckCircle2, X } from "lucide-react-native";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { itemsApi } from "@/lib/api/items";
 import { ALL_ITEM_TYPES, ITEM_TYPE_LABELS } from "@/types";
@@ -22,30 +21,88 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
 
+// ── Android type picker modal ─────────────────────────────────────────────────
+// Alert.alert on Android truncates buttons beyond ~3, so we use a proper modal.
+
+function AndroidTypePicker({
+  visible,
+  current,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  current: ItemType;
+  onSelect: (t: ItemType) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <TouchableOpacity
+        style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+          <View style={{ backgroundColor: "#FFFFFF", borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: 480 }}>
+            {/* Header */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
+              <Text variant="body" className="font-semibold">Select item type</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={18} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            {/* Scrollable list of all types */}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+              {ALL_ITEM_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => { onSelect(t); onClose(); }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    borderTopWidth: 1,
+                    borderTopColor: "#F1F5F9",
+                    backgroundColor: t === current ? "#EFF6FF" : "transparent",
+                  }}
+                >
+                  <Text variant="body" style={{ color: t === current ? "#2563EB" : "#0F172A" }}>
+                    {ITEM_TYPE_LABELS[t]}
+                  </Text>
+                  {t === current && (
+                    <CheckCircle2 size={16} color="#2563EB" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function showTypePicker(current: ItemType, onSelect: (t: ItemType) => void) {
-  const labels = ALL_ITEM_TYPES.map((t) => ITEM_TYPE_LABELS[t]);
-  const options = [...labels, "Cancel"];
-
-  if (Platform.OS === "ios") {
-    ActionSheetIOS.showActionSheetWithOptions(
-      { options, cancelButtonIndex: options.length - 1, title: "Select item type" },
-      (index) => {
-        if (index < ALL_ITEM_TYPES.length) onSelect(ALL_ITEM_TYPES[index]);
-      },
-    );
-  } else {
-    Alert.alert(
-      "Select item type",
-      undefined,
-      ALL_ITEM_TYPES.map((t) => ({
-        text: ITEM_TYPE_LABELS[t],
-        style: (t === current ? "default" : "default") as "default",
-        onPress: () => onSelect(t),
-      })).concat([{ text: "Cancel", style: "cancel" as const, onPress: () => {} }]),
-    );
-  }
+  // iOS: native action sheet (handles any number of options natively)
+  ActionSheetIOS.showActionSheetWithOptions(
+    {
+      options: [...ALL_ITEM_TYPES.map((t) => ITEM_TYPE_LABELS[t]), "Cancel"],
+      cancelButtonIndex: ALL_ITEM_TYPES.length,
+      title: "Select item type",
+    },
+    (index) => {
+      if (index < ALL_ITEM_TYPES.length) onSelect(ALL_ITEM_TYPES[index]);
+    },
+  );
 }
 
 // ── Single detected item row ──────────────────────────────────────────────────
@@ -65,6 +122,7 @@ function DetectedItemRow({
   onRemove: () => void;
   onToggleIncrement: () => void;
 }) {
+  const [showAndroidTypePicker, setShowAndroidTypePicker] = useState(false);
   const isLowConfidence = item.confidence < 0.6;
   const showWarning = item.isDuplicate || isLowConfidence;
 
@@ -160,7 +218,13 @@ function DetectedItemRow({
       {/* Type chip + qty stepper */}
       <View className="flex-row items-center justify-between">
         <TouchableOpacity
-          onPress={() => showTypePicker(item.type, onChangeType)}
+          onPress={() => {
+            if (Platform.OS === "ios") {
+              showTypePicker(item.type, onChangeType);
+            } else {
+              setShowAndroidTypePicker(true);
+            }
+          }}
           className="flex-row items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5"
         >
           <Text style={{ fontSize: 12, fontWeight: "600", color: "#2563EB" }}>
@@ -171,6 +235,16 @@ function DetectedItemRow({
 
         <QuantityStepper value={item.quantity} onChange={onChangeQty} />
       </View>
+
+      {/* Android-only scrollable type picker */}
+      {Platform.OS === "android" && (
+        <AndroidTypePicker
+          visible={showAndroidTypePicker}
+          current={item.type}
+          onSelect={onChangeType}
+          onClose={() => setShowAndroidTypePicker(false)}
+        />
+      )}
     </Card>
   );
 }
