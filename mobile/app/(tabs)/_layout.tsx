@@ -1,10 +1,16 @@
 import { Tabs, Redirect } from "expo-router";
 import { Home, Search, User, Sparkles } from "lucide-react-native";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const { session, isLoading } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  // On Android the bottom inset covers the gesture navigation bar.
+  // React Navigation adds it automatically when SafeAreaProvider is present,
+  // but we set an explicit minimum height so the tab bar is never clipped.
+  const tabBarHeight = Platform.OS === "android" ? 56 + insets.bottom : undefined;
 
   if (isLoading) {
     return (
@@ -28,6 +34,8 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: "#FFFFFF",
           borderTopColor: "#E2E8F0",
+          height: tabBarHeight,
+          paddingBottom: insets.bottom,
         },
       }}
     >

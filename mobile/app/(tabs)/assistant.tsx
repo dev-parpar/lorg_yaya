@@ -10,6 +10,7 @@ import {
   Platform,
   Text as RNText,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles, SendHorizontal, RotateCcw } from "lucide-react-native";
 import Markdown from "react-native-markdown-display";
@@ -197,6 +198,11 @@ export default function AssistantScreen() {
   const [input, setInput] = useState("");
   const scrollViewRef = useRef<ScrollView>(null);
   const { messages, isStreaming, sendMessage, clearMessages } = useAiChat();
+  const insets = useSafeAreaInsets();
+  // On Android the keyboard height reported by the OS includes the gesture
+  // navigation bar, but our KeyboardAvoidingView sits above the tab bar.
+  // Adding the bottom inset to the offset compensates for that difference.
+  const kbOffset = Platform.OS === "ios" ? 0 : 56 + insets.bottom;
 
   const { data: inventory = [], isLoading: inventoryLoading } = useQuery<
     FlatInventoryItem[]
@@ -248,8 +254,8 @@ export default function AssistantScreen() {
 
       <KeyboardAvoidingView
         className="flex-1"
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={kbOffset}
       >
         {messages.length === 0 ? (
           <ScrollView
