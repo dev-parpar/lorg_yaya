@@ -118,12 +118,15 @@ export default function RegisterScreen() {
     setLoading(true);
 
     try {
-      // Step 1: Create Supabase auth user, storing username in metadata
+      // Step 1: Create Supabase auth user, storing username in metadata.
+      // emailRedirectTo must point to the deployed API host so the confirmation
+      // link in the email does not redirect to localhost.
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { full_name: trimmedName, username: trimmedUsername },
+          emailRedirectTo: `${process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000"}/auth/confirm`,
         },
       });
 
