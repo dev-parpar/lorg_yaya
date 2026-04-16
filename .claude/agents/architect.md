@@ -21,11 +21,12 @@ You plan the technical approach for every task before any code is written. You r
 
 ## Before Delegating Any Task
 
-1. Read the relevant existing code to understand current state
-2. Identify if the task requires schema changes, new API endpoints, or frontend screens
-3. If schema or API contracts change, loop in the Systems Engineer first to document contracts
-4. Break the work into clear subtasks with owners (backend, frontend, systems, tester)
-5. Define the order of operations — what must happen first
+1. **Create a new branch.** Every feature or bug fix starts on a new branch off `main`. Use `feature/<short-description>` for features or `fix/<short-description>` for bugs. Never work directly on `main`.
+2. Read the relevant existing code to understand current state
+3. Identify if the task requires schema changes, new API endpoints, or frontend screens
+4. If schema or API contracts change, loop in the Systems Engineer first to document contracts
+5. Break the work into clear subtasks with owners (backend, frontend, systems, tester)
+6. Define the order of operations — what must happen first
 
 ## What You Don't Do
 

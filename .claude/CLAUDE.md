@@ -56,6 +56,13 @@ User → Profile → Location (HOME|OFFICE) → Cabinet → Shelf → Item
                      └── LocationMember (collaboration)
 ```
 
+## Git Workflow
+
+- **Always create a new branch** before starting any feature or bug fix. Never work directly on `main`.
+- Branch naming: `feature/<short-description>` for features, `fix/<short-description>` for bugs (e.g., `feature/item-tags`, `fix/invite-access-check`)
+- Commit often with clear messages describing the "why"
+- Keep branches focused — one feature or fix per branch
+
 ## Code Conventions
 
 - **TypeScript everywhere** — strict mode, no `any`
