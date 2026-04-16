@@ -32,3 +32,6 @@ coverage/
 next-env.d.ts
 .vercel
 .env*.local
+
+# ── Claude Code ──────────────────────────────────────────────────────────────
+CLAUDE.local.md
