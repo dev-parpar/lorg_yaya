@@ -92,6 +92,10 @@ export async function writeOp(
   );
   setPendingCount(locationId, pendingRow?.cnt ?? 0);
 
+  // 5. Schedule a debounced push to sync changes to remote
+  const { schedulePush } = useLocalDbStore.getState();
+  if (schedulePush) schedulePush(locationId);
+
   return op;
 }
 

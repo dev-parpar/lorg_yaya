@@ -11,8 +11,7 @@ import {
   TextInput as RNTextInput,
 } from "react-native";
 import { X, Plus, ChevronDown, CheckCircle2 } from "lucide-react-native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { itemsApi, type BatchItemRow } from "@/lib/api/items";
+import type { BatchItemRow } from "@/lib/api/items";
 import { ALL_ITEM_TYPES, ITEM_TYPE_LABELS } from "@/types";
 import type { ItemType } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -35,8 +34,15 @@ interface BulkItemModalProps {
   cabinetId: string;
   shelfId?: string;
   onClose: () => void;
-  /** Invalidation key so the parent list refreshes after save */
-  queryKey: unknown[];
+  /** Batch-create items via local ops */
+  onBatchCreate: (
+    items: Array<{
+      name: string;
+      quantity?: number;
+      itemType?: ItemType;
+    }>,
+    shelfId?: string | null,
+  ) => Promise<void>;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -210,10 +216,10 @@ export function BulkItemModal({
   cabinetId,
   shelfId,
   onClose,
-  queryKey,
+  onBatchCreate,
 }: BulkItemModalProps) {
-  const queryClient = useQueryClient();
   const [rows, setRows] = useState<RowState[]>([newRow()]);
+  const [submitting, setSubmitting] = useState(false);
   const listRef = useRef<FlatList>(null);
 
   function reset() {
@@ -245,20 +251,24 @@ export function BulkItemModal({
 
   // ── Submit ────────────────────────────────────────────────────────────
 
-  const batchMutation = useMutation({
-    mutationFn: (validRows: BatchItemRow[]) =>
-      itemsApi.batchCreate({ cabinetId, shelfId, items: validRows }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey });
-      queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
+  async function doSubmit(validRows: BatchItemRow[]) {
+    setSubmitting(true);
+    try {
+      await onBatchCreate(
+        validRows.map((r) => ({ name: r.name.trim(), quantity: r.quantity, itemType: r.itemType })),
+        shelfId,
+      );
       handleClose();
       Alert.alert(
         "Items added",
-        `${result.count} item${result.count !== 1 ? "s" : ""} added successfully.`,
+        `${validRows.length} item${validRows.length !== 1 ? "s" : ""} added successfully.`,
       );
-    },
-    onError: (e: Error) => Alert.alert("Error", e.message),
-  });
+    } catch (e) {
+      Alert.alert("Error", (e as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   function handleSubmit() {
     const validRows = rows.filter((r) => r.name.trim().length > 0);
@@ -267,7 +277,6 @@ export function BulkItemModal({
       return;
     }
 
-    // Warn about blank rows being skipped
     const blankCount = rows.length - validRows.length;
     if (blankCount > 0) {
       Alert.alert(
@@ -277,17 +286,12 @@ export function BulkItemModal({
           { text: "Cancel", style: "cancel" },
           {
             text: `Add ${validRows.length} item${validRows.length !== 1 ? "s" : ""}`,
-            onPress: () =>
-              batchMutation.mutate(
-                validRows.map((r) => ({ name: r.name.trim(), quantity: r.quantity, itemType: r.itemType })),
-              ),
+            onPress: () => void doSubmit(validRows),
           },
         ],
       );
     } else {
-      batchMutation.mutate(
-        validRows.map((r) => ({ name: r.name.trim(), quantity: r.quantity, itemType: r.itemType })),
-      );
+      void doSubmit(validRows);
     }
   }
 
@@ -351,14 +355,14 @@ export function BulkItemModal({
         <View className="gap-3 pt-2">
           <Button
             onPress={handleSubmit}
-            loading={batchMutation.isPending}
-            disabled={namedCount === 0 || batchMutation.isPending}
+            loading={submitting}
+            disabled={namedCount === 0 || submitting}
           >
             {namedCount > 0
               ? `Add ${namedCount} Item${namedCount !== 1 ? "s" : ""}`
               : "Add Items"}
           </Button>
-          <Button onPress={handleClose} variant="ghost" disabled={batchMutation.isPending}>
+          <Button onPress={handleClose} variant="ghost" disabled={submitting}>
             Cancel
           </Button>
         </View>

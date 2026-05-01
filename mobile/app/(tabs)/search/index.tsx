@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { FlatList, View, ActivityIndicator } from "react-native";
-import { useQuery } from "@tanstack/react-query";
 import { Search as SearchIcon, Package2 } from "lucide-react-native";
-import { itemsApi } from "@/lib/api/items";
 import { COLORS } from "@/lib/theme/tokens";
-import type { ItemWithLocation } from "@/types";
+import { useLocalSearch, type SearchResult } from "@/lib/hooks/useLocalSearch";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { NotificationBell } from "@/components/ui/notification-bell";
@@ -24,11 +22,9 @@ function useDebounce<T>(value: T, delay = 400): T {
   return debounced;
 }
 
-function SearchResultCard({ item }: { item: ItemWithLocation }) {
+function SearchResultCard({ item }: { item: SearchResult }) {
   const breadcrumb = [
-    item.cabinet.location.name,
-    item.cabinet.name,
-    item.shelf?.name,
+    item.cabinetName,
   ]
     .filter(Boolean)
     .join(" › ");
@@ -62,11 +58,7 @@ export default function SearchScreen() {
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounce(query);
 
-  const { data: results, isLoading } = useQuery({
-    queryKey: ["search", debouncedQuery],
-    queryFn: () => itemsApi.search(debouncedQuery),
-    enabled: debouncedQuery.trim().length >= 2,
-  });
+  const { results, isLoading } = useLocalSearch(debouncedQuery);
 
   const showResults = debouncedQuery.trim().length >= 2;
 
@@ -91,7 +83,7 @@ export default function SearchScreen() {
 
       {!isLoading && showResults && (
         <FlatList
-          data={results ?? []}
+          data={results}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <SearchResultCard item={item} />}
           ListEmptyComponent={

@@ -8,6 +8,7 @@ import { locationsApi } from "@/lib/api/locations";
 import { COLORS } from "@/lib/theme/tokens";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { useSyncStatus } from "@/lib/hooks/useSyncStatus";
 import { EntityPhoto } from "@/components/ui/entity-photo";
 import type { LocationWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -153,6 +154,8 @@ function LocationCard({
 }) {
   const Icon = location.type === "HOME" ? Home : Building2;
   const isOwner = location.role === "OWNER";
+  const { pendingCount, hasError, isSynced } = useSyncStatus(location.id);
+  const syncDotColor = hasError ? "#EF4444" : pendingCount > 0 ? "#F59E0B" : "#22C55E";
 
   return (
     <Card onPress={onPress} className="mb-3">
@@ -173,6 +176,7 @@ function LocationCard({
         <View className="flex-1">
           <View className="flex-row items-center gap-2">
             <Text variant="h3">{location.name}</Text>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: syncDotColor }} />
             {!isOwner && (
               <View style={{ backgroundColor: "rgba(212,168,83,0.25)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 }}>
                 <Text style={{ color: COLORS.warning, fontSize: 11, fontWeight: "600" }}>Shared</Text>

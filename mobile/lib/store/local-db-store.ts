@@ -14,6 +14,10 @@ interface LocalDbState {
   setSyncError: (locationId: string, error: string | null) => void;
   lastSynced: Record<string, string>;
   setLastSynced: (locationId: string, timestamp: string) => void;
+
+  /** Callback to schedule a debounced push for a location. Set by useSyncManager. */
+  schedulePush: ((locationId: string) => void) | null;
+  setSchedulePush: (fn: ((locationId: string) => void) | null) => void;
 }
 
 export const useLocalDbStore = create<LocalDbState>((set) => ({
@@ -49,4 +53,7 @@ export const useLocalDbStore = create<LocalDbState>((set) => ({
     set((state) => ({
       lastSynced: { ...state.lastSynced, [locationId]: timestamp },
     })),
+
+  schedulePush: null,
+  setSchedulePush: (fn) => set({ schedulePush: fn }),
 }));

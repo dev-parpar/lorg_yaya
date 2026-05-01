@@ -12,8 +12,8 @@ interface UseImageUploadOptions {
   bucket: StorageBucket;
   /** Storage path relative to the bucket root, e.g. "locations/{userId}/{locationId}" */
   buildPath: () => string;
-  /** Called with the storage path after a successful upload */
-  onUpload: (imagePath: string) => Promise<void>;
+  /** Called with the storage path and signed URL after a successful upload */
+  onUpload: (imagePath: string, signedUrl: string) => Promise<void>;
   /** Called when user chooses to remove the current photo */
   onRemove?: () => Promise<void>;
 }
@@ -98,9 +98,17 @@ export function useImageUpload({
 
       if (uploadError) throw new Error(uploadError.message);
 
-      // Notify caller — they PATCH their entity with the path, and the server
-      // generates + stores the stable 10-year signed URL.
-      await onUpload(path);
+      // Generate a 10-year signed URL so the caller can store it alongside
+      // the path (local-first ops need both values client-side).
+      const TEN_YEARS_SECS = 60 * 60 * 24 * 365 * 10;
+      const { data: signedData, error: signError } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, TEN_YEARS_SECS);
+      if (signError || !signedData?.signedUrl) {
+        throw new Error(signError?.message ?? "Failed to generate signed URL");
+      }
+
+      await onUpload(path, signedData.signedUrl);
     } catch (e) {
       Alert.alert("Upload failed", (e as Error).message ?? "Something went wrong.");
     } finally {

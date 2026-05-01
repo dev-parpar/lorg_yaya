@@ -18,7 +18,8 @@ export type StorageBucket =
   | "locations"
   | "cabinets"
   | "shelves"
-  | "items";
+  | "items"
+  | "sync";
 
 /**
  * Generate a stable, long-lived signed URL for a private storage path.

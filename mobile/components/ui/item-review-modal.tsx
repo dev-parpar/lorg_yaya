@@ -8,10 +8,9 @@ import {
   Platform,
   TextInput as RNTextInput,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { AlertTriangle, Trash2, ChevronDown, CheckCircle2, X } from "lucide-react-native";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { itemsApi } from "@/lib/api/items";
 import { ALL_ITEM_TYPES, ITEM_TYPE_LABELS } from "@/types";
 import type { DetectedItem, ItemType } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -258,8 +257,24 @@ export interface ItemReviewModalProps {
   cabinetId: string;
   shelfId?: string;
   onClose: () => void;
-  /** TanStack Query key(s) to invalidate after a successful save */
-  queryKey: unknown[];
+  /** Create a single item via local ops */
+  onCreateItem: (input: {
+    name: string;
+    quantity?: number;
+    itemType?: ItemType;
+    shelfId?: string | null;
+  }) => Promise<string>;
+  /** Update an existing item via local ops */
+  onUpdateItem: (itemId: string, changes: Partial<{ quantity: number }>) => Promise<void>;
+  /** Batch-create items via local ops */
+  onBatchCreate: (
+    items: Array<{
+      name: string;
+      quantity?: number;
+      itemType?: ItemType;
+    }>,
+    shelfId?: string | null,
+  ) => Promise<void>;
 }
 
 export function ItemReviewModal({
@@ -268,9 +283,10 @@ export function ItemReviewModal({
   cabinetId,
   shelfId,
   onClose,
-  queryKey,
+  onCreateItem,
+  onUpdateItem,
+  onBatchCreate,
 }: ItemReviewModalProps) {
-  const queryClient = useQueryClient();
   const [rows, setRows] = useState<DetectedItem[]>(detectedItems);
 
   // React Native Modals stay mounted even when visible=false, so useState(detectedItems)
@@ -335,36 +351,32 @@ export function ItemReviewModal({
       // Items to create fresh
       const creates = active.filter((r) => !r.isDuplicate || !r.incrementInstead);
 
-      // Run increments in parallel
+      // Run increments via local update ops
       await Promise.all(
         increments.map((r) =>
-          itemsApi.update(r.existingItemId!, {
+          onUpdateItem(r.existingItemId!, {
             quantity: (r.existingQty ?? 0) + r.quantity,
           }),
         ),
       );
 
-      // Batch-create new items
+      // Batch-create new items via local ops
       if (creates.length > 0) {
-        await itemsApi.batchCreate({
-          cabinetId,
-          shelfId,
-          items: creates.map((r) => ({
+        await onBatchCreate(
+          creates.map((r) => ({
             name: r.name.trim(),
             quantity: r.quantity,
             itemType: r.type,
           })),
-        });
+          shelfId,
+        );
       }
 
-      await queryClient.invalidateQueries({ queryKey });
-      // Bust the flat inventory cache so Lorgy's next response includes the new items
-      await queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
       onClose();
 
-      const total = active.length;
       const incrCount = increments.length;
       const newCount = creates.length;
+      const total = active.length;
       Alert.alert(
         "Items saved",
         [
