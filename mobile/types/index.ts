@@ -203,6 +203,23 @@ export interface FlatInventoryItem {
   shelfId: string | null;
 }
 
+/** Full location → cabinet → shelf structure (including empty ones) for AI context */
+export interface LocationStructure {
+  locationId: string;
+  locationName: string;
+  locationType: string;
+  cabinets: Array<{
+    cabinetId: string;
+    cabinetName: string;
+    description: string | null;
+    shelves: Array<{
+      shelfId: string;
+      shelfName: string;
+      position: number;
+    }>;
+  }>;
+}
+
 // ── AI Inventory Actions ────────────────────────────────────────────────────
 
 export type InventoryAction =
@@ -242,6 +259,39 @@ export type InventoryAction =
       locationId: string;
       toCabinetId: string;
       toShelfId: string | null;
+    }
+  | {
+      type: "add_cabinet";
+      locationId: string;
+      cabinet: { name: string; description: string | null };
+    }
+  | {
+      type: "update_cabinet";
+      cabinetId: string;
+      locationId: string;
+      changes: { name?: string; description?: string | null };
+    }
+  | {
+      type: "remove_cabinet";
+      cabinetId: string;
+      locationId: string;
+    }
+  | {
+      type: "add_shelf";
+      cabinetId: string;
+      locationId: string;
+      shelf: { name: string };
+    }
+  | {
+      type: "update_shelf";
+      shelfId: string;
+      locationId: string;
+      changes: { name?: string };
+    }
+  | {
+      type: "remove_shelf";
+      shelfId: string;
+      locationId: string;
     };
 
 export interface ActionResponse {

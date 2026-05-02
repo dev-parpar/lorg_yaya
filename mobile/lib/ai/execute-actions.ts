@@ -24,7 +24,6 @@ export async function executeInventoryActions(
     try {
       switch (action.type) {
         case "add_item": {
-          // Validate cabinet exists
           const cab = db.getFirstSync<{ id: string }>(
             `SELECT id FROM cabinets WHERE id = ? AND deleted_at IS NULL`,
             [action.cabinetId],
@@ -34,7 +33,6 @@ export async function executeInventoryActions(
             break;
           }
 
-          // Validate shelf exists if specified
           if (action.shelfId) {
             const shelf = db.getFirstSync<{ id: string }>(
               `SELECT id FROM shelves WHERE id = ? AND deleted_at IS NULL`,
@@ -67,7 +65,6 @@ export async function executeInventoryActions(
         }
 
         case "update_item": {
-          // Validate item exists
           const item = db.getFirstSync<{ id: string }>(
             `SELECT id FROM items WHERE id = ? AND deleted_at IS NULL`,
             [action.itemId],
@@ -79,10 +76,7 @@ export async function executeInventoryActions(
 
           await writeOp(
             "update_item",
-            {
-              itemId: action.itemId,
-              changes: action.changes,
-            },
+            { itemId: action.itemId, changes: action.changes },
             action.locationId,
           );
           results.push({ action, success: true });
@@ -130,6 +124,154 @@ export async function executeInventoryActions(
               fromShelfId: itemToMove.shelf_id,
               toCabinetId: action.toCabinetId,
               toShelfId: action.toShelfId,
+            },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "add_cabinet": {
+          await writeOp(
+            "add_cabinet",
+            {
+              cabinetId: Crypto.randomUUID(),
+              name: action.cabinet.name,
+              description: action.cabinet.description ?? null,
+              imagePath: null,
+              signedImageUrl: null,
+            },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "update_cabinet": {
+          const cabToUpdate = db.getFirstSync<{ id: string }>(
+            `SELECT id FROM cabinets WHERE id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+          if (!cabToUpdate) {
+            results.push({ action, success: false, error: "Cabinet not found" });
+            break;
+          }
+
+          await writeOp(
+            "update_cabinet",
+            { cabinetId: action.cabinetId, changes: action.changes },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "remove_cabinet": {
+          const cabToRemove = db.getFirstSync<{ id: string }>(
+            `SELECT id FROM cabinets WHERE id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+          if (!cabToRemove) {
+            results.push({ action, success: false, error: "Cabinet not found" });
+            break;
+          }
+
+          // Gather cascade IDs
+          const shelves = db.getAllSync<{ id: string }>(
+            `SELECT id FROM shelves WHERE cabinet_id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+          const items = db.getAllSync<{ id: string }>(
+            `SELECT id FROM items WHERE cabinet_id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+
+          await writeOp(
+            "delete_cabinet",
+            {
+              cabinetId: action.cabinetId,
+              cascadedShelfIds: shelves.map((s) => s.id),
+              cascadedItemIds: items.map((i) => i.id),
+            },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "add_shelf": {
+          const cabForShelf = db.getFirstSync<{ id: string }>(
+            `SELECT id FROM cabinets WHERE id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+          if (!cabForShelf) {
+            results.push({ action, success: false, error: "Cabinet not found" });
+            break;
+          }
+
+          // Determine next position
+          const maxPos = db.getFirstSync<{ max_pos: number | null }>(
+            `SELECT MAX(position) AS max_pos FROM shelves WHERE cabinet_id = ? AND deleted_at IS NULL`,
+            [action.cabinetId],
+          );
+          const nextPosition = (maxPos?.max_pos ?? -1) + 1;
+
+          await writeOp(
+            "add_shelf",
+            {
+              shelfId: Crypto.randomUUID(),
+              cabinetId: action.cabinetId,
+              name: action.shelf.name,
+              position: nextPosition,
+              imagePath: null,
+              signedImageUrl: null,
+            },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "update_shelf": {
+          const shelfToUpdate = db.getFirstSync<{ id: string }>(
+            `SELECT id FROM shelves WHERE id = ? AND deleted_at IS NULL`,
+            [action.shelfId],
+          );
+          if (!shelfToUpdate) {
+            results.push({ action, success: false, error: "Shelf not found" });
+            break;
+          }
+
+          await writeOp(
+            "update_shelf",
+            { shelfId: action.shelfId, changes: action.changes },
+            action.locationId,
+          );
+          results.push({ action, success: true });
+          break;
+        }
+
+        case "remove_shelf": {
+          const shelfToRemove = db.getFirstSync<{ id: string }>(
+            `SELECT id FROM shelves WHERE id = ? AND deleted_at IS NULL`,
+            [action.shelfId],
+          );
+          if (!shelfToRemove) {
+            results.push({ action, success: false, error: "Shelf not found" });
+            break;
+          }
+
+          // Gather orphaned item IDs (items on this shelf)
+          const orphanedItems = db.getAllSync<{ id: string }>(
+            `SELECT id FROM items WHERE shelf_id = ? AND deleted_at IS NULL`,
+            [action.shelfId],
+          );
+
+          await writeOp(
+            "delete_shelf",
+            {
+              shelfId: action.shelfId,
+              orphanedItemIds: orphanedItems.map((i) => i.id),
             },
             action.locationId,
           );
