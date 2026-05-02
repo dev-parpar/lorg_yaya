@@ -14,7 +14,7 @@ import { Text } from "@/components/ui/text";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { User, Mail, LogOut, AtSign, Trash2, Pencil, Code } from "lucide-react-native";
+import { User, Mail, LogOut, AtSign, Trash2, Pencil } from "lucide-react-native";
 import { COLORS } from "@/lib/theme/tokens";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import type { Profile } from "@/types";
@@ -227,13 +227,6 @@ export default function ProfileScreen() {
       </Card>
 
       {/* ── Actions ───────────────────────────────────────────────────── */}
-      <Button onPress={() => router.push("/profile/dev-sandbox")} variant="outline" className="mb-3">
-        <View className="flex-row items-center gap-2">
-          <Code size={16} color={COLORS.foreground} />
-          <Text className="text-foreground font-semibold">Dev Sandbox</Text>
-        </View>
-      </Button>
-
       <Button onPress={handleSignOut} variant="outline" className="mb-3">
           <View className="flex-row items-center gap-2">
             <LogOut size={16} color={COLORS.foreground} />
