@@ -28,11 +28,13 @@ export async function GET() {
         ],
       },
       select: {
+        id: true,
         name: true,
         type: true,
         cabinets: {
           where: { deletedAt: null },
           select: {
+            id: true,
             name: true,
             shelves: {
               where: { deletedAt: null },
@@ -41,6 +43,7 @@ export async function GET() {
             items: {
               where: { deletedAt: null },
               select: {
+                id: true,
                 name: true,
                 description: true,
                 quantity: true,
@@ -71,6 +74,10 @@ export async function GET() {
             quantity: item.quantity,
             description: item.description,
             tags: item.tags,
+            itemId: item.id,
+            locationId: location.id,
+            cabinetId: cabinet.id,
+            shelfId: item.shelfId,
           });
         }
       }

@@ -18,9 +18,11 @@ import { useState } from "react";
 
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
+import { ActionCard } from "@/components/ui/action-card";
 import { Text } from "@/components/ui/text";
 import { locationsApi } from "@/lib/api/locations";
 import { useLocalInventory } from "@/lib/hooks/useLocalInventory";
+import { useLocalDbStore } from "@/lib/store/local-db-store";
 import { useAiChat } from "@/lib/hooks/useAiChat";
 import type { ChatMessage } from "@/types";
 import { COLORS, FONTS, SHADOWS } from "@/lib/theme/tokens";
@@ -113,8 +115,17 @@ function UserBubble({ content }: { content: string }) {
   );
 }
 
-function AssistantBubble({ message }: { message: ChatMessage }) {
+function AssistantBubble({
+  message,
+  onConfirm,
+  onReject,
+}: {
+  message: ChatMessage;
+  onConfirm?: () => Promise<void>;
+  onReject?: () => void;
+}) {
   const isEmpty = message.isStreaming && message.content === "";
+  const hasActions = message.actions && message.actions.length > 0;
 
   return (
     <View style={{ width: "92%", marginBottom: 12 }}>
@@ -133,32 +144,43 @@ function AssistantBubble({ message }: { message: ChatMessage }) {
         >
           <Sparkles size={15} color={COLORS.primary} />
         </View>
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: COLORS.card,
-            borderWidth: 1,
-            borderColor: COLORS.border,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            borderRadius: 16,
-            borderTopLeftRadius: 4,
-            ...SHADOWS.card,
-          }}
-        >
-          {isEmpty ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <ActivityIndicator size="small" color={COLORS.muted} />
-              <RNText style={{ fontSize: 14, color: COLORS.mutedForeground }}>
-                Thinking…
+        <View style={{ flex: 1 }}>
+          <View
+            style={{
+              backgroundColor: COLORS.card,
+              borderWidth: 1,
+              borderColor: COLORS.border,
+              paddingHorizontal: 16,
+              paddingVertical: 12,
+              borderRadius: 16,
+              borderTopLeftRadius: 4,
+              ...SHADOWS.card,
+            }}
+          >
+            {isEmpty ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <ActivityIndicator size="small" color={COLORS.muted} />
+                <RNText style={{ fontSize: 14, color: COLORS.mutedForeground }}>
+                  Thinking…
+                </RNText>
+              </View>
+            ) : message.isStreaming ? (
+              <RNText style={{ fontSize: 14, color: COLORS.foreground, lineHeight: 21 }}>
+                {message.content + "▌"}
               </RNText>
-            </View>
-          ) : message.isStreaming ? (
-            <RNText style={{ fontSize: 14, color: COLORS.foreground, lineHeight: 21 }}>
-              {message.content + "▌"}
-            </RNText>
-          ) : (
-            <Markdown style={markdownStyles}>{message.content}</Markdown>
+            ) : (
+              <Markdown style={markdownStyles}>{message.content}</Markdown>
+            )}
+          </View>
+
+          {/* Action card below the text bubble */}
+          {hasActions && onConfirm && onReject && (
+            <ActionCard
+              actions={message.actions!}
+              status={message.actionStatus ?? "pending"}
+              onConfirm={onConfirm}
+              onReject={onReject}
+            />
           )}
         </View>
       </View>
@@ -213,8 +235,9 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
 export default function AssistantScreen() {
   const [input, setInput] = useState("");
   const scrollViewRef = useRef<ScrollView>(null);
-  const { messages, isStreaming, sendMessage, clearMessages } = useAiChat();
+  const { messages, isStreaming, sendMessage, confirmActions, rejectActions, clearMessages } = useAiChat();
   const insets = useSafeAreaInsets();
+  const lastViewedLocationId = useLocalDbStore((s) => s.lastViewedLocationId);
   // On Android the keyboard height reported by the OS includes the gesture
   // navigation bar, but our KeyboardAvoidingView sits above the tab bar.
   // Adding the bottom inset to the offset compensates for that difference.
@@ -234,9 +257,9 @@ export default function AssistantScreen() {
       const message = (text ?? input).trim();
       if (!message || isStreaming) return;
       setInput("");
-      await sendMessage(message, inventory);
+      await sendMessage(message, inventory, lastViewedLocationId);
     },
-    [input, isStreaming, inventory, sendMessage],
+    [input, isStreaming, inventory, lastViewedLocationId, sendMessage],
   );
 
   const scrollToBottom = useCallback(() => {
@@ -298,7 +321,12 @@ export default function AssistantScreen() {
               msg.role === "user" ? (
                 <UserBubble key={msg.id} content={msg.content} />
               ) : (
-                <AssistantBubble key={msg.id} message={msg} />
+                <AssistantBubble
+                  key={msg.id}
+                  message={msg}
+                  onConfirm={() => confirmActions(msg.id)}
+                  onReject={() => rejectActions(msg.id)}
+                />
               ),
             )}
           </ScrollView>

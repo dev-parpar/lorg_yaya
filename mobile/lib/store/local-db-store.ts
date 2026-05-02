@@ -18,6 +18,10 @@ interface LocalDbState {
   /** Callback to schedule a debounced push for a location. Set by useSyncManager. */
   schedulePush: ((locationId: string) => void) | null;
   setSchedulePush: (fn: ((locationId: string) => void) | null) => void;
+
+  /** Last location the user was viewing — used as context for AI actions */
+  lastViewedLocationId: string | null;
+  setLastViewedLocationId: (id: string) => void;
 }
 
 export const useLocalDbStore = create<LocalDbState>((set) => ({
@@ -56,4 +60,7 @@ export const useLocalDbStore = create<LocalDbState>((set) => ({
 
   schedulePush: null,
   setSchedulePush: (fn) => set({ schedulePush: fn }),
+
+  lastViewedLocationId: null,
+  setLastViewedLocationId: (id) => set({ lastViewedLocationId: id }),
 }));

@@ -196,6 +196,57 @@ export interface FlatInventoryItem {
   quantity: number;
   description: string | null;
   tags: string[];
+  /** IDs for AI action resolution */
+  itemId: string;
+  locationId: string;
+  cabinetId: string;
+  shelfId: string | null;
+}
+
+// ── AI Inventory Actions ────────────────────────────────────────────────────
+
+export type InventoryAction =
+  | {
+      type: "add_item";
+      locationId: string;
+      cabinetId: string;
+      shelfId: string | null;
+      item: {
+        name: string;
+        quantity: number;
+        itemType: ItemType;
+        description: string | null;
+        tags: string[];
+      };
+    }
+  | {
+      type: "update_item";
+      itemId: string;
+      locationId: string;
+      changes: {
+        name?: string;
+        quantity?: number;
+        itemType?: ItemType;
+        description?: string | null;
+        tags?: string[];
+      };
+    }
+  | {
+      type: "remove_item";
+      itemId: string;
+      locationId: string;
+    }
+  | {
+      type: "move_item";
+      itemId: string;
+      locationId: string;
+      toCabinetId: string;
+      toShelfId: string | null;
+    };
+
+export interface ActionResponse {
+  text: string;
+  actions: InventoryAction[];
 }
 
 export interface ChatMessage {
@@ -204,6 +255,10 @@ export interface ChatMessage {
   content: string;
   /** True while the assistant response is still streaming in */
   isStreaming?: boolean;
+  /** Structured actions returned by Claude (only on assistant messages) */
+  actions?: InventoryAction[];
+  /** Lifecycle of the action card */
+  actionStatus?: "pending" | "confirmed" | "rejected";
 }
 
 // ── API response envelope ────────────────────────────────────────────────────

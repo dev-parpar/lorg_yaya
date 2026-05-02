@@ -1,7 +1,13 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/lib/auth/supabase";
 import { API_BASE_URL } from "@/lib/constants";
-import type { ChatMessage, FlatInventoryItem } from "@/types";
+import { executeInventoryActions } from "@/lib/ai/execute-actions";
+import type {
+  ChatMessage,
+  FlatInventoryItem,
+  ActionResponse,
+  InventoryAction,
+} from "@/types";
 
 function generateId(): string {
   return Math.random().toString(36).slice(2, 11);
@@ -10,7 +16,13 @@ function generateId(): string {
 interface UseAiChatReturn {
   messages: ChatMessage[];
   isStreaming: boolean;
-  sendMessage: (text: string, inventory: FlatInventoryItem[]) => Promise<void>;
+  sendMessage: (
+    text: string,
+    inventory: FlatInventoryItem[],
+    activeLocationId?: string | null,
+  ) => Promise<void>;
+  confirmActions: (messageId: string) => Promise<void>;
+  rejectActions: (messageId: string) => void;
   clearMessages: () => void;
 }
 
@@ -19,7 +31,11 @@ export function useAiChat(): UseAiChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
 
   const sendMessage = useCallback(
-    async (text: string, inventory: FlatInventoryItem[]) => {
+    async (
+      text: string,
+      inventory: FlatInventoryItem[],
+      activeLocationId?: string | null,
+    ) => {
       if (isStreaming) return;
 
       const historySnapshot = messages.map((m) => ({
@@ -53,6 +69,10 @@ export function useAiChat(): UseAiChatReturn {
           let consumed = 0;
 
           xhr.onprogress = () => {
+            // Only stream for text/plain responses — JSON arrives all at once
+            const contentType = xhr.getResponseHeader("Content-Type") ?? "";
+            if (contentType.includes("application/json")) return;
+
             const chunk = xhr.responseText.slice(consumed);
             consumed = xhr.responseText.length;
             if (!chunk) return;
@@ -79,16 +99,50 @@ export function useAiChat(): UseAiChatReturn {
               return;
             }
 
-            // Final flush — drain any bytes that onprogress may have missed
-            const remaining = xhr.responseText.slice(consumed);
-            if (remaining) {
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === aiMsgId
-                    ? { ...m, content: m.content + remaining }
-                    : m,
-                ),
-              );
+            const contentType = xhr.getResponseHeader("Content-Type") ?? "";
+
+            if (contentType.includes("application/json")) {
+              // Action response — Claude invoked the manage_inventory tool
+              try {
+                const actionResponse = JSON.parse(
+                  xhr.responseText,
+                ) as ActionResponse;
+
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? {
+                          ...m,
+                          content: actionResponse.text,
+                          actions: actionResponse.actions,
+                          actionStatus: "pending" as const,
+                          isStreaming: false,
+                        }
+                      : m,
+                  ),
+                );
+              } catch {
+                // Fallback: treat as plain text if JSON parsing fails
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? { ...m, content: xhr.responseText, isStreaming: false }
+                      : m,
+                  ),
+                );
+              }
+            } else {
+              // Text response — drain any remaining bytes
+              const remaining = xhr.responseText.slice(consumed);
+              if (remaining) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? { ...m, content: m.content + remaining }
+                      : m,
+                  ),
+                );
+              }
             }
             resolve();
           };
@@ -104,6 +158,7 @@ export function useAiChat(): UseAiChatReturn {
               message: text,
               inventory,
               history: historySnapshot,
+              activeLocationId: activeLocationId ?? undefined,
             }),
           );
         });
@@ -134,7 +189,73 @@ export function useAiChat(): UseAiChatReturn {
     [isStreaming, messages],
   );
 
+  const confirmActions = useCallback(async (messageId: string) => {
+    // Find the message and its actions
+    let actions: InventoryAction[] | undefined;
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id === messageId && m.actionStatus === "pending") {
+          actions = m.actions;
+          return { ...m, actionStatus: "confirmed" as const };
+        }
+        return m;
+      }),
+    );
+
+    if (!actions || actions.length === 0) return;
+
+    try {
+      const results = await executeInventoryActions(actions);
+      const failures = results.filter((r) => !r.success);
+
+      if (failures.length > 0) {
+        const errorSummary = failures
+          .map((f) => f.error ?? "Unknown error")
+          .join(", ");
+
+        // Add a follow-up message about partial failures
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: generateId(),
+            role: "assistant",
+            content: `Some actions failed: ${errorSummary}`,
+          },
+        ]);
+      }
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to execute actions";
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: generateId(),
+          role: "assistant",
+          content: `Failed to execute actions: ${errorMessage}`,
+        },
+      ]);
+    }
+  }, []);
+
+  const rejectActions = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.actionStatus === "pending"
+          ? { ...m, actionStatus: "rejected" as const }
+          : m,
+      ),
+    );
+  }, []);
+
   const clearMessages = useCallback(() => setMessages([]), []);
 
-  return { messages, isStreaming, sendMessage, clearMessages };
+  return {
+    messages,
+    isStreaming,
+    sendMessage,
+    confirmActions,
+    rejectActions,
+    clearMessages,
+  };
 }

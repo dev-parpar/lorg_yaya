@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FlatList, View, Modal, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -10,6 +10,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import { useLocalCabinets } from "@/lib/hooks/useLocalCabinets";
 import { useSyncStatus } from "@/lib/hooks/useSyncStatus";
+import { useLocalDbStore } from "@/lib/store/local-db-store";
 import { EntityPhoto } from "@/components/ui/entity-photo";
 import type { CabinetWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -181,6 +182,11 @@ export default function LocationDetailScreen() {
     queryFn: () => locationsApi.get(locationId),
     enabled: !!locationId,
   });
+
+  // Track which location the user is viewing (for AI context)
+  useEffect(() => {
+    if (locationId) useLocalDbStore.getState().setLastViewedLocationId(locationId);
+  }, [locationId]);
 
   // Cabinets now come from local SQLite
   const { cabinets, isLoading, create, update, remove } = useLocalCabinets(locationId);

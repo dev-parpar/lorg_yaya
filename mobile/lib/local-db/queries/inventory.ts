@@ -15,22 +15,28 @@ export function getFlatInventory(
   const locationMap = new Map(locations.map((l) => [l.id, l]));
 
   const rows = db.getAllSync<{
+    item_id: string;
     name: string;
     description: string | null;
     quantity: number;
     item_type: string;
     tags: string;
+    cabinet_id: string;
     cabinet_name: string;
+    shelf_id: string | null;
     shelf_name: string | null;
     location_id: string;
   }>(
     `SELECT
+       i.id AS item_id,
        i.name,
        i.description,
        i.quantity,
        i.item_type,
        i.tags,
+       c.id AS cabinet_id,
        c.name AS cabinet_name,
+       s.id AS shelf_id,
        s.name AS shelf_name,
        c.location_id
      FROM items i
@@ -52,6 +58,10 @@ export function getFlatInventory(
       quantity: row.quantity,
       description: row.description,
       tags: JSON.parse(row.tags),
+      itemId: row.item_id,
+      locationId: row.location_id,
+      cabinetId: row.cabinet_id,
+      shelfId: row.shelf_id,
     };
   });
 }
