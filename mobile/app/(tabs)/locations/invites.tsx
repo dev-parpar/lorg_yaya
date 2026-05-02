@@ -77,7 +77,6 @@ export default function InvitesScreen() {
         title="Invites"
         subtitle="Pending location invites"
         showBack
-        onBack={() => router.back()}
       />
 
       {isLoading ? (

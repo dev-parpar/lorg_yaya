@@ -2,13 +2,14 @@ import { useState } from "react";
 import { FlatList, View, Modal, Alert, ActivityIndicator, TouchableOpacity } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Package, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
 import { COLORS } from "@/lib/theme/tokens";
-import { cabinetsApi } from "@/lib/api/cabinets";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
+import { useLocalCabinets } from "@/lib/hooks/useLocalCabinets";
+import { useSyncStatus } from "@/lib/hooks/useSyncStatus";
 import { EntityPhoto } from "@/components/ui/entity-photo";
 import type { CabinetWithCounts } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -16,7 +17,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,51 +24,58 @@ import { Input } from "@/components/ui/input";
 
 function EditCabinetModal({
   cabinet,
+  locationId,
+  onUpdate,
   onClose,
 }: {
   cabinet: CabinetWithCounts;
+  locationId: string;
+  onUpdate: (cabinetId: string, changes: Partial<{
+    name: string;
+    description: string | null;
+    imagePath: string | null;
+    signedImageUrl: string | null;
+  }>) => Promise<void>;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const { locationId } = useLocalSearchParams<{ locationId: string }>();
 
   const [name, setName] = useState(cabinet.name);
   const [desc, setDesc] = useState(cabinet.description ?? "");
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [localSignedUrl, setLocalSignedUrl] = useState<string | null | undefined>(
     cabinet.signedImageUrl,
   );
 
-  const updateMutation = useMutation({
-    mutationFn: (data: Parameters<typeof cabinetsApi.update>[1]) =>
-      cabinetsApi.update(cabinet.id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] }),
-    onError: (e: Error) => setError(e.message),
-  });
-
   const { showActionSheet, isUploading } = useImageUpload({
     bucket: "cabinets",
     buildPath: () => `${user!.id}/${cabinet.id}`,
-    onUpload: async (imagePath) => {
-      const updated = await cabinetsApi.update(cabinet.id, { imagePath });
-      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+    onUpload: async (imagePath, signedUrl) => {
+      await onUpdate(cabinet.id, { imagePath, signedImageUrl: signedUrl });
+      setLocalSignedUrl(signedUrl);
     },
     onRemove: async () => {
-      const updated = await cabinetsApi.update(cabinet.id, { imagePath: null });
-      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+      await onUpdate(cabinet.id, { imagePath: null, signedImageUrl: null });
+      setLocalSignedUrl(null);
     },
   });
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) { setError("Name is required."); return; }
     setError(null);
-    updateMutation.mutate(
-      { name: name.trim(), description: desc.trim() || undefined },
-      { onSuccess: () => onClose() },
-    );
+    setSaving(true);
+    try {
+      await onUpdate(cabinet.id, {
+        name: name.trim(),
+        description: desc.trim() || null,
+      });
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -95,7 +102,7 @@ function EditCabinetModal({
           numberOfLines={3}
         />
         {error && <Text variant="caption" className="text-destructive">{error}</Text>}
-        <Button onPress={handleSave} loading={updateMutation.isPending} className="mt-2">
+        <Button onPress={handleSave} loading={saving} className="mt-2">
           Save Changes
         </Button>
         <Button onPress={onClose} variant="ghost">Cancel</Button>
@@ -159,58 +166,46 @@ function CabinetCard({
 export default function LocationDetailScreen() {
   const { locationId } = useLocalSearchParams<{ locationId: string }>();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createName, setCreateName] = useState("");
   const [createDesc, setCreateDesc] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const [editingCabinet, setEditingCabinet] = useState<CabinetWithCounts | null>(null);
 
+  // Location metadata still lives in PostgreSQL
   const { data: location } = useQuery({
     queryKey: ["location", locationId],
     queryFn: () => locationsApi.get(locationId),
     enabled: !!locationId,
   });
 
-  const { data: cabinets, isLoading, error, refetch } = useQuery({
-    queryKey: ["cabinets", locationId],
-    queryFn: () => locationsApi.getCabinets(locationId),
-    enabled: !!locationId,
-  });
+  // Cabinets now come from local SQLite
+  const { cabinets, isLoading, create, update, remove } = useLocalCabinets(locationId);
+  const { pendingCount, hasError, isSynced } = useSyncStatus(locationId);
 
-  const createMutation = useMutation({
-    mutationFn: cabinetsApi.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] });
+  async function handleCreate() {
+    if (!createName.trim()) { setCreateError("Name is required."); return; }
+    setCreateError(null);
+    setCreating(true);
+    try {
+      await create(createName.trim(), createDesc.trim() || null);
       setShowCreateForm(false);
       setCreateName("");
       setCreateDesc("");
-      setCreateError(null);
-    },
-    onError: (e: Error) => setCreateError(e.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: cabinetsApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cabinets", locationId] }),
-  });
-
-  function handleCreate() {
-    if (!createName.trim()) { setCreateError("Name is required."); return; }
-    setCreateError(null);
-    createMutation.mutate({
-      locationId,
-      name: createName.trim(),
-      description: createDesc.trim() || undefined,
-    });
+    } catch (e) {
+      setCreateError((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
   }
 
   function confirmDelete(id: string, name: string) {
     Alert.alert("Delete Cabinet", `Delete "${name}"?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteMutation.mutate(id) },
+      { text: "Delete", style: "destructive", onPress: () => void remove(id) },
     ]);
   }
 
@@ -225,20 +220,11 @@ export default function LocationDetailScreen() {
     );
   }
 
-  if (error) {
-    return (
-      <Screen scroll={false}>
-        <PageHeader title="Cabinets" showBack />
-        <ErrorView message={(error as Error).message} onRetry={refetch} />
-      </Screen>
-    );
-  }
-
   return (
     <Screen scroll={false}>
       <PageHeader
         title={location?.name ?? "Cabinets"}
-        subtitle={`${cabinets?.length ?? 0} cabinet(s)`}
+        subtitle={`${cabinets.length} cabinet(s)${pendingCount > 0 ? ` · ${pendingCount} pending` : hasError ? " · sync error" : ""}`}
         showBack
         onAdd={() => setShowCreateForm(true)}
       />
@@ -281,7 +267,7 @@ export default function LocationDetailScreen() {
               numberOfLines={3}
             />
             {createError && <Text variant="caption" className="text-destructive">{createError}</Text>}
-            <Button onPress={handleCreate} loading={createMutation.isPending} className="mt-2">
+            <Button onPress={handleCreate} loading={creating} className="mt-2">
               Create Cabinet
             </Button>
             <Button onPress={() => { setShowCreateForm(false); setCreateError(null); }} variant="ghost">
@@ -296,6 +282,8 @@ export default function LocationDetailScreen() {
         {editingCabinet && (
           <EditCabinetModal
             cabinet={editingCabinet}
+            locationId={locationId}
+            onUpdate={update}
             onClose={() => setEditingCabinet(null)}
           />
         )}

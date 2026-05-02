@@ -147,6 +147,12 @@ export interface ItemWithLocation extends Item {
   cabinet: Cabinet & { location: Location };
 }
 
+export interface BatchItemRow {
+  name: string;
+  quantity: number;
+  itemType: ItemType;
+}
+
 // ── AI / Vision ──────────────────────────────────────────────────────────────
 
 /**

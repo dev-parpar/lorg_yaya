@@ -1,6 +1,7 @@
 import { Tabs, Redirect } from "expo-router";
 import { Home, Search, User, Sparkles } from "lucide-react-native";
 import { useAuthStore } from "@/lib/store/auth-store";
+import { useSyncManager } from "@/lib/hooks/useSyncManager";
 import { View, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WoodStrip } from "@/components/ui/backgrounds/WoodStrip";
@@ -8,6 +9,10 @@ import { COLORS } from "@/lib/theme/tokens";
 
 export default function TabsLayout() {
   const { session, isLoading } = useAuthStore();
+
+  // Initialize SQLite, run migrations, start sync engines for all locations.
+  // Internally guarded — no-ops until user and locations are available.
+  useSyncManager();
   const insets = useSafeAreaInsets();
 
   const tabBarHeight = Platform.OS === "android" ? 56 + insets.bottom : undefined;

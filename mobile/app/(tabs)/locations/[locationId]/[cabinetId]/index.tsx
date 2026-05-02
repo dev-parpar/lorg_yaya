@@ -13,14 +13,13 @@ import {
 } from "react-native";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layers, Package2, ChevronRight, ArrowRightLeft, Pencil, ScanLine } from "lucide-react-native";
-import { cabinetsApi } from "@/lib/api/cabinets";
 import { COLORS } from "@/lib/theme/tokens";
-import { itemsApi } from "@/lib/api/items";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
 import { useItemIdentifier } from "@/lib/hooks/useItemIdentifier";
+import { useLocalShelves } from "@/lib/hooks/useLocalShelves";
+import { useLocalItems } from "@/lib/hooks/useLocalItems";
 import { EntityPhoto } from "@/components/ui/entity-photo";
 import { BulkItemModal } from "@/components/ui/bulk-item-modal";
 import { ItemReviewModal } from "@/components/ui/item-review-modal";
@@ -31,7 +30,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Text } from "@/components/ui/text";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ErrorView } from "@/components/ui/error-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -44,49 +42,53 @@ type Section =
 
 function EditShelfModal({
   shelf,
-  cabinetId,
+  onShelfUpdate,
   onClose,
 }: {
   shelf: ShelfWithCounts;
-  cabinetId: string;
+  onShelfUpdate: (shelfId: string, changes: Partial<{
+    name: string;
+    position: number;
+    imagePath: string | null;
+    signedImageUrl: string | null;
+  }>) => Promise<void>;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [name, setName] = useState(shelf.name);
   const [position, setPosition] = useState(String(shelf.position));
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [localSignedUrl, setLocalSignedUrl] = useState<string | null | undefined>(
     shelf.signedImageUrl,
   );
 
-  const updateMutation = useMutation({
-    mutationFn: (data: { name: string; position?: number }) =>
-      cabinetsApi.updateShelf(shelf.id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] }),
-    onError: (e: Error) => setError(e.message),
-  });
-
   const { showActionSheet, isUploading } = useImageUpload({
     bucket: "shelves",
     buildPath: () => `${user!.id}/${shelf.id}`,
-    onUpload: async (imagePath) => {
-      const updated = await cabinetsApi.updateShelf(shelf.id, { imagePath });
-      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+    onUpload: async (imagePath, signedUrl) => {
+      await onShelfUpdate(shelf.id, { imagePath, signedImageUrl: signedUrl });
+      setLocalSignedUrl(signedUrl);
     },
     onRemove: async () => {
-      const updated = await cabinetsApi.updateShelf(shelf.id, { imagePath: null });
-      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+      await onShelfUpdate(shelf.id, { imagePath: null, signedImageUrl: null });
+      setLocalSignedUrl(null);
     },
   });
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) { setError("Name is required."); return; }
     setError(null);
-    const pos = position.trim() ? parseInt(position.trim(), 10) : shelf.position;
-    updateMutation.mutate({ name: name.trim(), position: pos }, { onSuccess: () => onClose() });
+    setSaving(true);
+    try {
+      const pos = position.trim() ? parseInt(position.trim(), 10) : shelf.position;
+      await onShelfUpdate(shelf.id, { name: name.trim(), position: pos });
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -112,7 +114,7 @@ function EditShelfModal({
           placeholder="e.g. 1"
         />
         {error && <Text variant="caption" className="text-destructive">{error}</Text>}
-        <Button onPress={handleSave} loading={updateMutation.isPending} className="mt-2">Save Changes</Button>
+        <Button onPress={handleSave} loading={saving} className="mt-2">Save Changes</Button>
         <Button onPress={onClose} variant="ghost">Cancel</Button>
       </View>
     </Screen>
@@ -123,52 +125,58 @@ function EditShelfModal({
 
 function EditItemModal({
   item,
-  cabinetId,
+  onItemUpdate,
   onClose,
 }: {
   item: Item;
-  cabinetId: string;
+  onItemUpdate: (itemId: string, changes: Partial<{
+    name: string;
+    quantity: number;
+    itemType: ItemType;
+    imagePath: string | null;
+    signedImageUrl: string | null;
+  }>) => Promise<void>;
   onClose: () => void;
 }) {
-  const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const [name, setName] = useState(item.name);
   const [qty, setQty] = useState(String(item.quantity));
   const [type, setType] = useState<ItemType>(item.itemType);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [localSignedUrl, setLocalSignedUrl] = useState<string | null | undefined>(
     item.signedImageUrl,
   );
 
-  const updateMutation = useMutation({
-    mutationFn: (data: { name: string; quantity: number; itemType: ItemType }) =>
-      itemsApi.update(item.id, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["items", cabinetId] }),
-    onError: (e: Error) => setError(e.message),
-  });
-
   const { showActionSheet, isUploading } = useImageUpload({
     bucket: "items",
     buildPath: () => `${user!.id}/${item.id}`,
-    onUpload: async (imagePath) => {
-      const updated = await itemsApi.updatePhoto(item.id, imagePath);
-      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+    onUpload: async (imagePath, signedUrl) => {
+      await onItemUpdate(item.id, { imagePath, signedImageUrl: signedUrl });
+      setLocalSignedUrl(signedUrl);
     },
     onRemove: async () => {
-      const updated = await itemsApi.updatePhoto(item.id, null);
-      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
-      setLocalSignedUrl(updated.signedImageUrl);
+      await onItemUpdate(item.id, { imagePath: null, signedImageUrl: null });
+      setLocalSignedUrl(null);
     },
   });
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) { setError("Name is required."); return; }
     setError(null);
-    updateMutation.mutate(
-      { name: name.trim(), quantity: parseInt(qty, 10) || 1, itemType: type },
-      { onSuccess: () => onClose() },
-    );
+    setSaving(true);
+    try {
+      await onItemUpdate(item.id, {
+        name: name.trim(),
+        quantity: parseInt(qty, 10) || 1,
+        itemType: type,
+      });
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -206,7 +214,7 @@ function EditItemModal({
           </ScrollView>
         </View>
         {error && <Text variant="caption" className="text-destructive">{error}</Text>}
-        <Button onPress={handleSave} loading={updateMutation.isPending} className="mt-2">Save Changes</Button>
+        <Button onPress={handleSave} loading={saving} className="mt-2">Save Changes</Button>
         <Button onPress={onClose} variant="ghost">Cancel</Button>
       </View>
     </Screen>
@@ -222,7 +230,6 @@ export default function CabinetDetailScreen() {
     shelf?: string;
   }>();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   // Shelf create form
   const [showShelfForm, setShowShelfForm] = useState(false);
@@ -256,78 +263,54 @@ export default function CabinetDetailScreen() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [itemToAssign, setItemToAssign] = useState<Item | null>(null);
 
-  const { data: shelves, isLoading: shelvesLoading, error: shelvesError, refetch: refetchShelves } = useQuery({
-    queryKey: ["shelves", cabinetId],
-    queryFn: () => cabinetsApi.getShelves(cabinetId),
-    enabled: !!cabinetId,
-  });
+  // Shelves and items now come from local SQLite
+  const {
+    shelves,
+    isLoading: shelvesLoading,
+    create: createShelf,
+    update: updateShelf,
+    remove: removeShelf,
+  } = useLocalShelves(cabinetId, locationId);
 
-  const { data: items, isLoading: itemsLoading, refetch: refetchItems } = useQuery({
-    queryKey: ["items", cabinetId, shelfFilter],
-    queryFn: () => cabinetsApi.getItems(cabinetId, shelfFilter),
-    enabled: !!cabinetId,
-  });
+  const {
+    items,
+    isLoading: itemsLoading,
+    create: createItem,
+    batchCreate,
+    update: updateItem,
+    remove: removeItem,
+    move: moveItem,
+  } = useLocalItems(cabinetId, locationId, shelfFilter);
 
-  const createShelfMutation = useMutation({
-    mutationFn: cabinetsApi.createShelf,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
-      setShowShelfForm(false);
-      setShelfName("");
-      setShelfPosition("");
-      setFormError(null);
-    },
-    onError: (e: Error) => setFormError(e.message),
-  });
+  const [creatingShelf, setCreatingShelf] = useState(false);
+  const [creatingItem, setCreatingItem] = useState(false);
 
-  const createItemMutation = useMutation({
-    mutationFn: itemsApi.create,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
-      queryClient.invalidateQueries({ queryKey: ["inventory", "full"] });
+  async function handleCreateItem() {
+    if (!itemName.trim()) { setFormError("Item name is required."); return; }
+    setFormError(null);
+    setCreatingItem(true);
+    try {
+      await createItem({
+        name: itemName.trim(),
+        quantity: parseInt(itemQty, 10) || 1,
+        itemType,
+        shelfId: shelfFilter ?? undefined,
+      });
       setShowItemForm(false);
       setItemName("");
       setItemQty("1");
       setItemType("OTHER");
-      setFormError(null);
-    },
-    onError: (e: Error) => setFormError(e.message),
-  });
-
-  const assignShelfMutation = useMutation({
-    mutationFn: ({ itemId, shelfId }: { itemId: string; shelfId: string }) =>
-      itemsApi.update(itemId, { shelfId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items", cabinetId] });
-      queryClient.invalidateQueries({ queryKey: ["shelves", cabinetId] });
-      setShowAssignModal(false);
-      setItemToAssign(null);
-    },
-    onError: (e: Error) => Alert.alert("Error", e.message),
-  });
-
-  const deleteItemMutation = useMutation({
-    mutationFn: itemsApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["items", cabinetId] }),
-  });
-
-  function handleCreateItem() {
-    if (!itemName.trim()) { setFormError("Item name is required."); return; }
-    setFormError(null);
-    createItemMutation.mutate({
-      cabinetId,
-      // When the user is viewing a specific shelf, pre-assign the item to it
-      ...(shelfFilter ? { shelfId: shelfFilter } : {}),
-      name: itemName.trim(),
-      quantity: parseInt(itemQty, 10) || 1,
-      itemType,
-    });
+    } catch (e) {
+      setFormError((e as Error).message);
+    } finally {
+      setCreatingItem(false);
+    }
   }
 
   function confirmDeleteItem(id: string, name: string) {
     Alert.alert("Delete Item", `Delete "${name}"?`, [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => deleteItemMutation.mutate(id) },
+      { text: "Delete", style: "destructive", onPress: () => void removeItem(id) },
     ]);
   }
 
@@ -380,36 +363,27 @@ export default function CabinetDetailScreen() {
     );
   }
 
-  if (shelvesError) {
-    return (
-      <Screen scroll={false}>
-        <PageHeader title="Cabinet" showBack />
-        <ErrorView onRetry={() => { refetchShelves(); refetchItems(); }} />
-      </Screen>
-    );
-  }
-
-  const unassignedItems = shelfFilter ? (items ?? []) : (items ?? []).filter((i) => !i.shelfId);
+  const unassignedItems = shelfFilter ? items : items.filter((i) => !i.shelfId);
   const sections: Section[] = shelfFilter
-    ? [{ key: "items", title: "Items on this shelf", data: (items ?? []) as SectionItem[] }]
+    ? [{ key: "items", title: "Items on this shelf", data: items as SectionItem[] }]
     : [
-        { key: "shelves", title: "Shelves", data: (shelves ?? []) as SectionItem[] },
+        { key: "shelves", title: "Shelves", data: shelves as SectionItem[] },
         { key: "items", title: "Unassigned Items", data: unassignedItems as SectionItem[] },
       ];
 
   const pageTitle = shelfFilter
-    ? (shelves?.find((s) => s.id === shelfFilter)?.name ?? "Shelf")
+    ? (shelves.find((s) => s.id === shelfFilter)?.name ?? "Shelf")
     : "Cabinet";
 
-  const hasShelves = (shelves?.length ?? 0) > 0;
+  const hasShelves = shelves.length > 0;
 
   return (
     <Screen scroll={false}>
       <PageHeader
         title={pageTitle}
         subtitle={shelfFilter
-          ? `${items?.length ?? 0} item(s)`
-          : `${shelves?.length ?? 0} shelves · ${items?.length ?? 0} items`}
+          ? `${items.length} item(s)`
+          : `${shelves.length} shelves · ${items.length} items`}
         showBack
         onAdd={promptAddItem}
       />
@@ -487,7 +461,7 @@ export default function CabinetDetailScreen() {
                   </View>
                   {itm.shelfId && (
                     <Text variant="caption" className="text-primary mt-0.5">
-                      {shelves?.find((s) => s.id === itm.shelfId)?.name ?? "On a shelf"}
+                      {shelves.find((s) => s.id === itm.shelfId)?.name ?? "On a shelf"}
                     </Text>
                   )}
                 </View>
@@ -534,11 +508,16 @@ export default function CabinetDetailScreen() {
             Pick a shelf for <Text variant="body" className="font-semibold">{itemToAssign?.name}</Text>
           </Text>
           <FlatList
-            data={shelves ?? []}
+            data={shelves}
             keyExtractor={(s) => s.id}
             renderItem={({ item: shelf }) => (
               <Card
-                onPress={() => itemToAssign && assignShelfMutation.mutate({ itemId: itemToAssign.id, shelfId: shelf.id })}
+                onPress={() => {
+                  if (!itemToAssign) return;
+                  void updateItem(itemToAssign.id, { shelfId: shelf.id });
+                  setShowAssignModal(false);
+                  setItemToAssign(null);
+                }}
                 className="mb-3"
               >
                 <View className="flex-row items-center gap-3">
@@ -547,7 +526,6 @@ export default function CabinetDetailScreen() {
                     <Text variant="body" className="font-medium">{shelf.name}</Text>
                     <Text variant="caption">{shelf._count.items} item(s) already here</Text>
                   </View>
-                  {assignShelfMutation.isPending && <ActivityIndicator size="small" color={COLORS.primary} />}
                 </View>
               </Card>
             )}
@@ -587,7 +565,7 @@ export default function CabinetDetailScreen() {
               </ScrollView>
             </View>
             {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
-            <Button onPress={handleCreateItem} loading={createItemMutation.isPending} className="mt-2">Add Item</Button>
+            <Button onPress={handleCreateItem} loading={creatingItem} className="mt-2">Add Item</Button>
             <Button onPress={() => { setShowItemForm(false); setFormError(null); setItemType("OTHER"); }} variant="ghost">Cancel</Button>
           </View>
         </Screen>
@@ -598,7 +576,7 @@ export default function CabinetDetailScreen() {
         {editingItem && (
           <EditItemModal
             item={editingItem}
-            cabinetId={cabinetId}
+            onItemUpdate={updateItem}
             onClose={() => setEditingItem(null)}
           />
         )}
@@ -615,17 +593,27 @@ export default function CabinetDetailScreen() {
               value={shelfPosition}
               onChangeText={setShelfPosition}
               keyboardType="number-pad"
-              placeholder={`e.g. ${(shelves?.length ?? 0) + 1}`}
+              placeholder={`e.g. ${shelves.length + 1}`}
             />
             {formError && <Text variant="caption" className="text-destructive">{formError}</Text>}
             <Button
-              onPress={() => {
+              onPress={async () => {
                 if (!shelfName.trim()) { setFormError("Name is required."); return; }
                 setFormError(null);
-                const pos = shelfPosition.trim() ? parseInt(shelfPosition.trim(), 10) : (shelves?.length ?? 0) + 1;
-                createShelfMutation.mutate({ cabinetId, name: shelfName.trim(), position: pos });
+                setCreatingShelf(true);
+                try {
+                  const pos = shelfPosition.trim() ? parseInt(shelfPosition.trim(), 10) : shelves.length + 1;
+                  await createShelf(shelfName.trim(), pos);
+                  setShowShelfForm(false);
+                  setShelfName("");
+                  setShelfPosition("");
+                } catch (e) {
+                  setFormError((e as Error).message);
+                } finally {
+                  setCreatingShelf(false);
+                }
               }}
-              loading={createShelfMutation.isPending}
+              loading={creatingShelf}
             >
               Create Shelf
             </Button>
@@ -641,7 +629,7 @@ export default function CabinetDetailScreen() {
         {editingShelf && (
           <EditShelfModal
             shelf={editingShelf}
-            cabinetId={cabinetId}
+            onShelfUpdate={updateShelf}
             onClose={() => setEditingShelf(null)}
           />
         )}
@@ -653,7 +641,9 @@ export default function CabinetDetailScreen() {
         cabinetId={cabinetId}
         shelfId={shelfFilter}
         onClose={() => setShowBulkForm(false)}
-        queryKey={["items", cabinetId, shelfFilter]}
+        onBatchCreate={async (batchItems, shelfIdArg) => {
+          await batchCreate(batchItems, shelfIdArg);
+        }}
       />
 
       {/* ── CV scan — identifying overlay ────────────────────────────── */}
@@ -687,7 +677,9 @@ export default function CabinetDetailScreen() {
           setShowReviewModal(false);
           setScannedItems([]);
         }}
-        queryKey={["items", cabinetId, shelfFilter]}
+        onCreateItem={createItem}
+        onUpdateItem={updateItem}
+        onBatchCreate={batchCreate}
       />
 
       {/* ── Android add-item menu (dismissible by tapping backdrop) ──────── */}

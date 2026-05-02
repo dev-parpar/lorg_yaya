@@ -19,9 +19,10 @@ import { useState } from "react";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { Text } from "@/components/ui/text";
-import { inventoryApi } from "@/lib/api/inventory";
+import { locationsApi } from "@/lib/api/locations";
+import { useLocalInventory } from "@/lib/hooks/useLocalInventory";
 import { useAiChat } from "@/lib/hooks/useAiChat";
-import type { ChatMessage, FlatInventoryItem } from "@/types";
+import type { ChatMessage } from "@/types";
 import { COLORS, FONTS, SHADOWS } from "@/lib/theme/tokens";
 
 // ── Markdown stylesheet (themed for cork-board ink-on-paper feel) ─────────────
@@ -219,13 +220,14 @@ export default function AssistantScreen() {
   // Adding the bottom inset to the offset compensates for that difference.
   const kbOffset = Platform.OS === "ios" ? 0 : 56 + insets.bottom;
 
-  const { data: inventory = [], isLoading: inventoryLoading } = useQuery<
-    FlatInventoryItem[]
-  >({
-    queryKey: ["inventory", "full"],
-    queryFn: () => inventoryApi.getFull(),
+  // Location metadata still comes from PostgreSQL; inventory reads from local SQLite.
+  const { data: locations = [] } = useQuery({
+    queryKey: ["locations"],
+    queryFn: locationsApi.list,
     staleTime: 1000 * 60 * 5,
   });
+  const locationMeta = locations.map((l) => ({ id: l.id, name: l.name, type: l.type }));
+  const { inventory, isLoading: inventoryLoading } = useLocalInventory(locationMeta);
 
   const handleSend = useCallback(
     async (text?: string) => {

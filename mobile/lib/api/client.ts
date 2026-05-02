@@ -11,6 +11,16 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   };
 }
 
+export class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
@@ -26,7 +36,10 @@ async function request<T>(
     const body: ApiError = await res.json().catch(() => ({
       error: `HTTP ${res.status}`,
     }));
-    throw new Error(body.error ?? `Request failed: ${res.status}`);
+    throw new ApiRequestError(
+      body.error ?? `Request failed: ${res.status}`,
+      res.status,
+    );
   }
 
   // 204 No Content — return empty object

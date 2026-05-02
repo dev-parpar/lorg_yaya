@@ -80,8 +80,9 @@ model Location {
   updatedAt       DateTime     @updatedAt @map("updated_at")
   deletedAt       DateTime?    @map("deleted_at")
 
-  cabinets Cabinet[]
-  members  LocationMember[]
+  cabinets  Cabinet[]
+  members   LocationMember[]
+  keyShares LocationKeyShare[]
 
   @@index([userId])
   @@index([deletedAt])
@@ -171,4 +172,23 @@ model Item {
   @@index([shelfId])
   @@index([deletedAt])
   @@map("items")
+}
+
+// Stores an encrypted location key from the owner → a specific recipient.
+// The recipient fetches their pending shares on first sync and decrypts the
+// key with their own private key, then marks the share as claimed.
+model LocationKeyShare {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  locationId   String    @map("location_id") @db.Uuid
+  recipientId  String    @map("recipient_id")
+  encryptedKey String    @map("encrypted_key") @db.Text
+  nonce        String    @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  claimedAt    DateTime? @map("claimed_at")
+
+  location Location @relation(fields: [locationId], references: [id])
+
+  @@unique([locationId, recipientId])
+  @@index([recipientId, claimedAt])
+  @@map("location_key_shares")
 }

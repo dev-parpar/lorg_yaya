@@ -1,40 +1,48 @@
 # Lorg Yaya — Architecture
 
-Lorg Yaya is a home inventory management application that lets users organize their belongings across locations, cabinets, and shelves. It supports real-time collaboration via location sharing, AI-powered item identification from photos, and a conversational assistant that understands the user's full inventory.
+Lorg Yaya is a home inventory management application that lets users organize their belongings across locations, cabinets, and shelves. It uses a **local-first architecture** — all inventory data lives in an on-device SQLite database and syncs to the cloud via encrypted operation logs stored in Supabase Storage. It supports multi-user collaboration via location sharing, AI-powered item identification from photos, and a conversational assistant that understands the user's full inventory.
 
 ---
 
 ## High-Level Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     Mobile App (Expo)                       │
-│   React Native 0.83 · Expo 55 · Expo Router · NativeWind   │
-│   Zustand (auth) · TanStack React Query (server state)     │
-└──────────────────────────┬──────────────────────────────────┘
-                           │  HTTPS (Bearer token)
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Backend API (Next.js 16)                   │
-│      App Router · Prisma 7 · Zod validation · Vitest       │
-│                                                             │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────┐ │
-│  │ API      │  │ Auth         │  │ AI                    │ │
-│  │ Routes   │  │ (Supabase)   │  │ (Anthropic Claude)    │ │
-│  └────┬─────┘  └──────┬───────┘  └───────────┬───────────┘ │
-│       │               │                      │              │
-│       ▼               ▼                      ▼              │
-│  ┌──────────┐  ┌──────────────┐  ┌───────────────────────┐ │
-│  │ Prisma   │  │ Supabase     │  │ Anthropic API         │ │
-│  │ ORM      │  │ Auth + Store │  │ (Chat + Vision)       │ │
-│  └────┬─────┘  └──────────────┘  └───────────────────────┘ │
-└───────┼─────────────────────────────────────────────────────┘
-        │
-        ▼
-┌──────────────┐
-│  PostgreSQL  │
-│  (Supabase)  │
-└──────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                      Mobile App (Expo)                           │
+│    React Native 0.83 · Expo 55 · Expo Router · NativeWind       │
+│    Zustand (auth + local-db) · expo-sqlite (inventory data)     │
+│                                                                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────┐ │
+│  │ SQLite       │  │ Sync Engine  │  │ React Query            │ │
+│  │ (local-first │  │ (encrypted   │  │ (locations, profiles,  │ │
+│  │  inventory)  │  │  op logs)    │  │  invites only)         │ │
+│  └──────┬───────┘  └──────┬───────┘  └────────────┬───────────┘ │
+└─────────┼─────────────────┼────────────────────────┼────────────┘
+          │                 │  Supabase Storage       │  HTTPS
+          │                 │  (NDJSON blobs)         │  (Bearer)
+          │                 ▼                         ▼
+          │  ┌──────────────────────────────────────────────────┐
+          │  │               Supabase                          │
+          │  │  ┌───────────┐  ┌───────────┐  ┌─────────────┐ │
+          │  │  │ Auth      │  │ Storage   │  │ PostgreSQL  │ │
+          │  │  │ (sessions)│  │ (op logs, │  │ (locations, │ │
+          │  │  │           │  │  photos)  │  │  profiles)  │ │
+          │  │  └───────────┘  └───────────┘  └──────┬──────┘ │
+          │  └───────────────────────────────────────┼────────┘
+          │                                          │
+          │         ┌────────────────────────────────┘
+          │         ▼
+          │  ┌─────────────────────────────────────────────────┐
+          │  │               Backend API (Next.js 16)          │
+          │  │   App Router · Prisma 7 · Zod · Vitest          │
+          │  │                                                  │
+          │  │  Locations/profiles/invites · AI chat + vision   │
+          │  └─────────────────────────────────────────────────┘
+          │
+          ▼
+    On-device only
+    (reads & writes
+     hit SQLite)
 ```
 
 ---
@@ -46,12 +54,16 @@ Lorg Yaya is a home inventory management application that lets users organize th
 | Mobile app | React Native 0.83 + Expo 55 | Cross-platform iOS/Android |
 | Navigation | Expo Router (file-based) | Tab + stack navigation |
 | Mobile styling | NativeWind 4 (Tailwind for RN) | Utility-first styling |
-| Mobile state | Zustand 5 + TanStack React Query 5 | Auth state + server cache |
+| Local database | expo-sqlite | On-device inventory (cabinets, shelves, items) |
+| Mobile state | Zustand 5 (auth + local-db versioning) | Auth state + SQLite reactivity |
+| Server state | TanStack React Query 5 | Locations, profiles, invites only |
+| Sync | Encrypted NDJSON op logs in Supabase Storage | Local-first sync across devices |
+| Encryption | expo-crypto (AES-GCM) | Per-location key, end-to-end encrypted ops |
 | Backend framework | Next.js 16 (App Router) | Serverless API routes |
 | ORM | Prisma 7 with PostgreSQL adapter | Type-safe database access |
-| Database | PostgreSQL (hosted on Supabase) | Primary data store |
+| Database | PostgreSQL (hosted on Supabase) | Locations, profiles, members, key shares |
 | Authentication | Supabase Auth | Email/password, sessions |
-| File storage | Supabase Storage | Photos (avatars, inventory) |
+| File storage | Supabase Storage | Photos + encrypted sync blobs |
 | AI | Anthropic Claude 3.5 | Chat assistant + vision |
 | Validation | Zod | Runtime schema validation |
 | Testing | Vitest + Testing Library | Unit and integration tests |
@@ -66,18 +78,18 @@ lorg_yaya/
 │   └── schema.prisma            # Database schema (all models, enums, relations)
 ├── src/                         # ── Backend ──
 │   ├── app/
-│   │   └── api/                 # Next.js API routes (22 route files)
+│   │   └── api/                 # Next.js API routes
 │   │       ├── account/         #   DELETE account
 │   │       ├── ai/              #   POST chat, POST identify-items
-│   │       ├── cabinets/        #   CRUD + nested shelves/items
+│   │       ├── cabinets/        #   CRUD (legacy — mobile uses local SQLite)
 │   │       ├── health/          #   GET health check
-│   │       ├── inventory/       #   GET full flat inventory
+│   │       ├── inventory/       #   GET full flat inventory (legacy)
 │   │       ├── invites/         #   GET pending, PATCH accept/decline
-│   │       ├── items/           #   CRUD + batch create
+│   │       ├── items/           #   CRUD + batch create (legacy)
 │   │       ├── locations/       #   CRUD + cabinets/invites/members
 │   │       ├── profiles/        #   GET me, POST create, PATCH update
-│   │       ├── search/          #   GET full-text search
-│   │       └── shelves/         #   CRUD + shelf items
+│   │       ├── search/          #   GET full-text search (legacy)
+│   │       └── shelves/         #   CRUD + shelf items (legacy)
 │   ├── lib/
 │   │   ├── ai/                  # AI config, system prompt builder
 │   │   ├── auth/                # Supabase server client, admin client
@@ -99,9 +111,9 @@ lorg_yaya/
 │   │   │   ├── register.tsx
 │   │   │   └── verify-email.tsx
 │   │   └── (tabs)/              # Main app (4 tabs)
-│   │       ├── _layout.tsx      # Tab bar config
+│   │       ├── _layout.tsx      # Tab bar config + useSyncManager()
 │   │       ├── locations/       # Location list → cabinets → shelves/items
-│   │       ├── search/          # Full-text item search
+│   │       ├── search/          # Local SQLite full-text search
 │   │       ├── assistant.tsx    # AI chat ("Lorgy")
 │   │       └── profile/         # User profile + account
 │   ├── components/
@@ -118,22 +130,52 @@ lorg_yaya/
 │   │       ├── item-review-modal.tsx
 │   │       └── ...
 │   ├── lib/
-│   │   ├── api/                 # Typed API modules per entity
+│   │   ├── api/                 # Typed API modules (server-managed entities)
 │   │   │   ├── client.ts        #   Fetch wrapper with Bearer auth
-│   │   │   ├── locations.ts
-│   │   │   ├── cabinets.ts
-│   │   │   ├── items.ts
-│   │   │   ├── profiles.ts
-│   │   │   ├── invites.ts
-│   │   │   └── inventory.ts
+│   │   │   ├── locations.ts     #   Locations (still server-managed)
+│   │   │   ├── profiles.ts      #   Profiles (still server-managed)
+│   │   │   ├── invites.ts       #   Invites (still server-managed)
+│   │   │   ├── key-shares.ts    #   Encryption key exchange
+│   │   │   └── sync.ts          #   Sync metadata helpers
+│   │   ├── local-db/            # ── Local-first SQLite layer ──
+│   │   │   ├── database.ts      #   expo-sqlite singleton + init
+│   │   │   ├── schema.ts        #   CREATE TABLE statements + migrations
+│   │   │   ├── types.ts         #   Op types, row types
+│   │   │   ├── operations.ts    #   writeOp() — append op + materialize + bump version
+│   │   │   ├── materializer.ts  #   Replay ops → latest state per entity
+│   │   │   ├── queries/         #   Read queries per entity
+│   │   │   │   ├── cabinets.ts
+│   │   │   │   ├── shelves.ts
+│   │   │   │   ├── items.ts
+│   │   │   │   └── inventory.ts #   Flat inventory for AI context
+│   │   │   └── index.ts         #   Re-exports
+│   │   ├── sync/                # ── Sync engine ──
+│   │   │   ├── sync-engine.ts   #   Per-location push/pull engine with timer
+│   │   │   ├── sync-api.ts      #   Supabase Storage read/write for op blobs
+│   │   │   ├── crypto.ts        #   AES-GCM encrypt/decrypt ops
+│   │   │   ├── key-manager.ts   #   Per-location key generation + storage
+│   │   │   ├── migration.ts     #   PostgreSQL → SQLite initial data pull
+│   │   │   ├── compaction.ts    #   Op log compaction (merge old blobs)
+│   │   │   ├── ndjson.ts        #   NDJSON serialization helpers
+│   │   │   ├── device-id.ts     #   Stable device identifier
+│   │   │   ├── app-state-listener.ts  # Foreground/background sync triggers
+│   │   │   └── index.ts
 │   │   ├── auth/
 │   │   │   └── supabase.ts      # Supabase client (SecureStore adapter)
 │   │   ├── hooks/
-│   │   │   ├── useAiChat.ts     # Streaming chat via XHR
-│   │   │   ├── useImageUpload.ts# Camera/library → compress → upload
+│   │   │   ├── useLocalCabinets.ts  # Reactive cabinet CRUD via SQLite
+│   │   │   ├── useLocalShelves.ts   # Reactive shelf CRUD via SQLite
+│   │   │   ├── useLocalItems.ts     # Reactive item CRUD via SQLite
+│   │   │   ├── useLocalSearch.ts    # Full-text search against SQLite
+│   │   │   ├── useLocalInventory.ts # Flat inventory for AI context
+│   │   │   ├── useSyncManager.ts    # Lifecycle: init engines, wire push/pull
+│   │   │   ├── useSyncStatus.ts     # Per-location pending/error indicators
+│   │   │   ├── useAiChat.ts         # Streaming chat via XHR
+│   │   │   ├── useImageUpload.ts    # Camera/library → compress → upload + signed URL
 │   │   │   └── useItemIdentifier.ts # Vision API item detection
 │   │   ├── store/
-│   │   │   └── auth-store.ts    # Zustand auth state
+│   │   │   ├── auth-store.ts        # Zustand auth state
+│   │   │   └── local-db-store.ts    # Zustand table version counters + schedulePush
 │   │   └── theme/
 │   │       └── tokens.ts        # Design tokens (colors, fonts, shadows)
 │   └── types/                   # Domain + API TypeScript types
@@ -143,7 +185,9 @@ lorg_yaya/
 
 ## Data Model
 
-All UUIDs are generated by PostgreSQL (`gen_random_uuid()`). All entities except Profile use soft-delete (`deletedAt` timestamp). The Profile model uses a status enum (`ACTIVE`/`DELETED`) for audit trails.
+**PostgreSQL** (via Prisma) stores user accounts, profiles, locations, location members, invites, and encryption key shares. **SQLite** (on-device) stores inventory data — cabinets, shelves, and items — as materialized views of an operation log.
+
+All PostgreSQL UUIDs are generated by `gen_random_uuid()`. All entities except Profile use soft-delete (`deletedAt` timestamp). The Profile model uses a status enum (`ACTIVE`/`DELETED`) for audit trails.
 
 ```
 User (Supabase auth.users)
@@ -250,7 +294,7 @@ All routes are under `src/app/api/`. Responses use a `{ data, meta? }` envelope.
 | `GET` | `/api/invites` | Yes | User's pending invites |
 | `PATCH` | `/api/invites/[id]` | Yes | Accept or decline invite |
 
-### Cabinets
+### Cabinets (legacy — mobile uses local SQLite)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -259,7 +303,7 @@ All routes are under `src/app/api/`. Responses use a `{ data, meta? }` envelope.
 | `PATCH` | `/api/cabinets/[id]` | Yes | Update cabinet |
 | `DELETE` | `/api/cabinets/[id]` | Yes | Soft-delete cabinet |
 
-### Shelves
+### Shelves (legacy — mobile uses local SQLite)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -269,7 +313,7 @@ All routes are under `src/app/api/`. Responses use a `{ data, meta? }` envelope.
 | `DELETE` | `/api/shelves/[id]` | Yes | Soft-delete shelf |
 | `GET` | `/api/shelves/[id]/items` | Yes | List items on shelf |
 
-### Items
+### Items (legacy — mobile uses local SQLite)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -279,7 +323,7 @@ All routes are under `src/app/api/`. Responses use a `{ data, meta? }` envelope.
 | `DELETE` | `/api/items/[id]` | Yes | Soft-delete item |
 | `POST` | `/api/items/batch` | Yes | Batch create (up to 50 items) |
 
-### Search & Inventory
+### Search & Inventory (legacy — mobile uses local SQLite)
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -314,7 +358,7 @@ AI features are powered by Anthropic Claude, configured via environment variable
 
 ### Chat Assistant ("Lorgy")
 
-1. Mobile app fetches the user's full flat inventory via `GET /api/inventory/full` (cached for 5 minutes).
+1. Mobile app builds the full flat inventory from local SQLite via `useLocalInventory()`, enriched with location metadata from the server.
 2. On each message, the app sends `{ message, inventory, history }` to `POST /api/ai/chat`.
 3. The backend builds a system prompt (`src/lib/ai/system-prompt.ts`) that formats the inventory by location > cabinet > shelf, with instructions to use markdown tables for item lists.
 4. The response streams token-by-token via a `ReadableStream`.
@@ -359,20 +403,29 @@ _layout.tsx                    Root (font loading, auth listener, QueryClient)
 
 ### State Management
 
-- **Zustand** (`lib/store/auth-store.ts`): Minimal store holding `session`, `user`, and `isLoading`. Synced with Supabase's `onAuthStateChange` listener in the root layout.
-- **TanStack React Query**: All server data (locations, cabinets, items, profiles, invites, search results) is managed through React Query with query key-based caching and mutation-driven invalidation. Stale time is 1 minute, single retry on failure.
+- **Zustand — auth** (`lib/store/auth-store.ts`): Minimal store holding `session`, `user`, and `isLoading`. Synced with Supabase's `onAuthStateChange` listener in the root layout.
+- **Zustand — local-db** (`lib/store/local-db-store.ts`): Holds per-table version counters that increment on every write, driving reactive re-renders in `useLocal*` hooks. Also holds the `schedulePush` callback wired by `useSyncManager`.
+- **TanStack React Query**: Used only for server-managed entities — locations, profiles, and invites. Not used for inventory data (cabinets, shelves, items), which is read directly from SQLite.
+- **Local SQLite** (expo-sqlite): All inventory reads and writes go through SQLite. Screens use `useLocalCabinets`, `useLocalShelves`, `useLocalItems`, and `useLocalSearch` hooks that re-query when the relevant Zustand version counter bumps.
 - **Local state**: Form fields, modal visibility, chat messages, and pagination/filtering are component-local.
 
 ### API Communication
 
-The API client (`lib/api/client.ts`) wraps `fetch` with automatic Supabase Bearer token injection. It expects the backend's `{ data }` envelope and unwraps it, returning typed data directly. Per-entity API modules (`lib/api/locations.ts`, etc.) provide typed methods that map to backend routes.
+The API client (`lib/api/client.ts`) wraps `fetch` with automatic Supabase Bearer token injection. It expects the backend's `{ data }` envelope and unwraps it, returning typed data directly. API modules (`lib/api/locations.ts`, `profiles.ts`, `invites.ts`) provide typed methods for server-managed entities. Inventory CRUD no longer goes through the API client — it writes directly to local SQLite.
 
 ### Key Hooks
 
 | Hook | File | Purpose |
 |---|---|---|
+| `useLocalCabinets` | `lib/hooks/useLocalCabinets.ts` | Reactive cabinet list + CRUD via SQLite |
+| `useLocalShelves` | `lib/hooks/useLocalShelves.ts` | Reactive shelf list + CRUD via SQLite |
+| `useLocalItems` | `lib/hooks/useLocalItems.ts` | Reactive item list + CRUD/batch/move via SQLite |
+| `useLocalSearch` | `lib/hooks/useLocalSearch.ts` | Full-text search across local SQLite items |
+| `useLocalInventory` | `lib/hooks/useLocalInventory.ts` | Flat inventory for AI chat context |
+| `useSyncManager` | `lib/hooks/useSyncManager.ts` | Init sync engines, wire push/pull lifecycle |
+| `useSyncStatus` | `lib/hooks/useSyncStatus.ts` | Per-location pending count + error state |
 | `useAiChat` | `lib/hooks/useAiChat.ts` | Streaming chat with XHR, manages message history |
-| `useImageUpload` | `lib/hooks/useImageUpload.ts` | Camera/library picker → compress → Supabase upload |
+| `useImageUpload` | `lib/hooks/useImageUpload.ts` | Camera/library → compress → upload + generate signed URL |
 | `useItemIdentifier` | `lib/hooks/useItemIdentifier.ts` | Photo → vision API → detected items |
 
 ---
@@ -432,7 +485,9 @@ The `handleRouteError()` function is used in every API route's catch block:
 
 ### Mobile
 
-The API client throws on non-2xx responses with the server's error message. React Query handles retries (1 retry). Screens display `ErrorView` components with retry buttons on query failures.
+- **Inventory screens** (cabinets, shelves, items, search): Read from local SQLite — no network errors possible. Write failures surface via `Alert.alert`.
+- **Server-managed screens** (locations, profiles, invites): The API client throws on non-2xx responses. React Query handles retries (1 retry). Screens display `ErrorView` components with retry buttons.
+- **Sync errors**: Tracked per-location in `useSyncStatus`. Displayed as a colored dot on location cards (green = synced, amber = pending, red = error).
 
 ---
 
@@ -441,7 +496,7 @@ The API client throws on non-2xx responses with the server's error message. Reac
 All photos are stored in Supabase Storage, organized into buckets by entity type (avatars, locations, cabinets, shelves, items).
 
 1. **Upload**: Mobile picks from camera/library → compresses via `expo-image-manipulator` → reads as `ArrayBuffer` via `expo-file-system` → uploads to Supabase Storage.
-2. **URL generation**: The backend generates signed URLs with a 10-year TTL (via `src/lib/storage/sign.ts`) and stores both `imagePath` and `signedImageUrl` on the entity.
+2. **URL generation**: For inventory entities (cabinets, shelves, items), the mobile app generates 10-year signed URLs client-side immediately after upload, passing both `imagePath` and `signedUrl` to the local write operation. For server-managed entities (locations, profiles), the backend generates signed URLs via `src/lib/storage/sign.ts`.
 3. **Display**: The mobile app uses `expo-image` with disk caching, leveraging the stable signed URLs.
 4. **Cleanup**: Images are deleted from storage when the parent entity is deleted or the photo is removed.
 
@@ -515,12 +570,89 @@ npm run android      # Start on Android emulator
 
 ---
 
+## Local-First Sync Architecture
+
+Inventory data (cabinets, shelves, items) uses a local-first architecture. All reads and writes happen against an on-device SQLite database. Changes sync to the cloud via encrypted operation logs stored in Supabase Storage.
+
+### Data Flow
+
+```
+User action
+    │
+    ▼
+writeOp(op)                          ← Append op to local SQLite ops table
+    │
+    ├── Materialize latest state      ← Replay ops → update entity table
+    ├── Bump Zustand version counter  ← Triggers UI re-render
+    └── schedulePush(locationId)      ← Debounced (10s / 15s max)
+         │
+         ▼
+    SyncEngine.push()
+         │
+         ├── Read un-pushed ops from SQLite
+         ├── Encrypt with per-location AES-GCM key
+         ├── Serialize as NDJSON
+         └── Upload to Supabase Storage
+              bucket: sync-logs/<locationId>/<seq>.ndjson.enc
+```
+
+### Operation Log
+
+Every inventory mutation is recorded as an immutable operation:
+
+| Field | Description |
+|---|---|
+| `id` | UUID, generated locally |
+| `locationId` | Scopes the op to a location's sync channel |
+| `entityType` | `cabinet`, `shelf`, or `item` |
+| `entityId` | UUID of the target entity |
+| `opType` | `CREATE`, `UPDATE`, or `DELETE` |
+| `payload` | JSON diff (only changed fields for UPDATE) |
+| `deviceId` | Originating device |
+| `timestamp` | ISO 8601 |
+| `seq` | Monotonic counter per device |
+
+The materializer replays all ops for an entity in timestamp order to derive the current state. Deletes set `deletedAt` rather than removing the row.
+
+### Sync Engine Lifecycle
+
+1. **Init** (`useSyncManager`): Called from `(tabs)/_layout.tsx`. Waits for auth + locations.
+2. **Migration**: On first run, pulls existing data from PostgreSQL and converts to local ops.
+3. **Pull**: Downloads new op blobs from Supabase Storage, decrypts, and materializes.
+4. **Background timer**: Pulls every 3 minutes.
+5. **Push**: Debounced — 10 seconds after last write, max 15 seconds.
+6. **App state**: Pull on foreground, push on background.
+
+### Encryption
+
+Each location has a unique AES-GCM encryption key generated client-side via `expo-crypto`.
+
+- Keys are stored in `expo-secure-store` on-device.
+- When a location is shared, the key is exchanged via `LocationKeyShare` records in PostgreSQL (encrypted with the recipient's public key).
+- Op blobs are encrypted before upload and decrypted after download — the server never sees plaintext inventory data.
+
+### Reactivity
+
+Screens subscribe to SQLite data via `useLocal*` hooks. These hooks:
+
+1. Run a SQL query against the materialized entity table.
+2. Subscribe to the relevant Zustand version counter (e.g., `cabinets_v`).
+3. Re-query whenever the counter bumps (which happens on every `writeOp`).
+
+This gives instant UI updates without network round-trips.
+
+---
+
 ## Key Design Decisions
 
+- **Local-first for inventory**: Cabinets, shelves, and items live in on-device SQLite. This gives instant reads/writes, full offline support, and eliminates loading spinners for the core inventory experience. Sync happens asynchronously in the background.
+- **Server-side for metadata**: Locations, profiles, invites, and members stay in PostgreSQL via the API. These are collaborative/administrative entities where consistency matters more than offline access.
+- **Encrypted op logs**: Inventory operations are encrypted per-location with AES-GCM before syncing to Supabase Storage. The server never sees plaintext inventory data.
 - **Soft-deletes everywhere**: All inventory entities use `deletedAt` timestamps rather than hard-deletes, preserving audit trails and enabling potential recovery.
 - **Serverless-first**: Next.js API routes deploy as serverless functions. No persistent server process required.
-- **Supabase for auth + storage**: Avoids building custom auth or file storage. Free tier keeps costs low.
-- **AI context injection**: The full flat inventory is sent with each chat message rather than giving the AI database access. This keeps the AI stateless and the authorization boundary clean.
-- **Signed URLs with long TTL**: 10-year signed URLs for photos avoid repeated signing overhead and work well with mobile disk caching.
-- **Zustand only for auth**: Global state is minimized. All server data flows through React Query, which handles caching, background refetching, and cache invalidation.
+- **Supabase for auth + storage**: Avoids building custom auth or file storage. Free tier keeps costs low. Storage also serves as the sync transport for encrypted op blobs.
+- **AI context injection**: The full flat inventory is built from local SQLite and sent with each chat message rather than giving the AI database access. This keeps the AI stateless and the authorization boundary clean.
+- **Signed URLs with long TTL**: 10-year signed URLs for photos avoid repeated signing overhead and work well with mobile disk caching. For inventory entities, URLs are generated client-side after upload.
+- **Zustand for auth + reactivity**: Auth state and SQLite table version counters live in Zustand. Version counters drive reactive re-renders when local data changes. React Query is used only for server-managed entities.
 - **Modal-per-operation pattern**: Each CRUD action opens a dedicated modal rather than navigating to a new screen, keeping navigation shallow and context preserved.
+- **Legacy backend routes preserved**: Cabinet, shelf, item, search, and inventory CRUD routes still exist in the backend but are no longer used by the mobile app. They remain available for a potential future web client.

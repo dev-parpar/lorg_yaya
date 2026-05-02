@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { View, Alert, Modal } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "expo-router";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { profilesApi } from "@/lib/api/profiles";
@@ -23,6 +24,7 @@ const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 export default function ProfileScreen() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Edit modal state
