@@ -5,6 +5,7 @@ import { executeInventoryActions } from "@/lib/ai/execute-actions";
 import type {
   ChatMessage,
   FlatInventoryItem,
+  LocationStructure,
   ActionResponse,
   InventoryAction,
 } from "@/types";
@@ -19,6 +20,7 @@ interface UseAiChatReturn {
   sendMessage: (
     text: string,
     inventory: FlatInventoryItem[],
+    structure: LocationStructure[],
     activeLocationId?: string | null,
   ) => Promise<void>;
   confirmActions: (messageId: string) => Promise<void>;
@@ -34,6 +36,7 @@ export function useAiChat(): UseAiChatReturn {
     async (
       text: string,
       inventory: FlatInventoryItem[],
+      structure: LocationStructure[],
       activeLocationId?: string | null,
     ) => {
       if (isStreaming) return;
@@ -157,6 +160,7 @@ export function useAiChat(): UseAiChatReturn {
             JSON.stringify({
               message: text,
               inventory,
+              structure,
               history: historySnapshot,
               activeLocationId: activeLocationId ?? undefined,
             }),

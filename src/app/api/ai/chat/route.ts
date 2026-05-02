@@ -24,9 +24,30 @@ const flatInventoryItemSchema = z.object({
   shelfId: z.string().nullable().optional(),
 });
 
+const locationStructureSchema = z.object({
+  locationId: z.string(),
+  locationName: z.string(),
+  locationType: z.string(),
+  cabinets: z.array(
+    z.object({
+      cabinetId: z.string(),
+      cabinetName: z.string(),
+      description: z.string().nullable(),
+      shelves: z.array(
+        z.object({
+          shelfId: z.string(),
+          shelfName: z.string(),
+          position: z.number(),
+        }),
+      ),
+    }),
+  ),
+});
+
 const chatSchema = z.object({
   message: z.string().min(1).max(2000),
   inventory: z.array(flatInventoryItemSchema),
+  structure: z.array(locationStructureSchema).optional(),
   history: z
     .array(
       z.object({
@@ -51,7 +72,7 @@ export async function POST(request: NextRequest) {
     return handleRouteError(error, "POST /api/ai/chat");
   }
 
-  const { message, inventory, history, activeLocationId } = body;
+  const { message, inventory, structure, history, activeLocationId } = body;
 
   logger.info("[ai/chat] Request received", {
     model: aiConfig.model,
@@ -78,6 +99,7 @@ export async function POST(request: NextRequest) {
       description: item.description ?? null,
       shelfId: item.shelfId ?? null,
     })),
+    structure,
     activeLocationId,
   );
 

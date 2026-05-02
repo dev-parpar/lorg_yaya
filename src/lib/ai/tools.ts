@@ -8,7 +8,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 export const inventoryTool: Anthropic.Tool = {
   name: "manage_inventory",
   description:
-    "Execute inventory changes requested by the user. Use this tool ONLY when the user explicitly asks to add, remove, update, or move items. Do NOT use this tool for questions about inventory (e.g., 'where are my scissors?', 'what food do I have?').",
+    "Execute inventory changes requested by the user. Use this tool ONLY when the user explicitly asks to add, remove, update, or move items, cabinets, or shelves. Do NOT use this tool for questions about inventory (e.g., 'where are my scissors?', 'what food do I have?').",
   input_schema: {
     type: "object" as const,
     properties: {
@@ -25,21 +25,26 @@ export const inventoryTool: Anthropic.Tool = {
           properties: {
             type: {
               type: "string",
-              enum: ["add_item", "update_item", "remove_item", "move_item"],
+              enum: [
+                "add_item", "update_item", "remove_item", "move_item",
+                "add_cabinet", "update_cabinet", "remove_cabinet",
+                "add_shelf", "update_shelf", "remove_shelf",
+              ],
               description: "The type of inventory action.",
             },
-            // add_item fields
+            // Common fields
             locationId: {
               type: "string",
-              description: "The location ID. Required for add_item, update_item, remove_item, move_item.",
+              description: "The location ID. Required for all actions.",
             },
+            // Item-specific fields
             cabinetId: {
               type: "string",
-              description: "Target cabinet ID. Required for add_item and move_item.",
+              description: "Cabinet ID. Required for add_item, move_item, add_shelf, update_cabinet, remove_cabinet.",
             },
             shelfId: {
               type: ["string", "null"],
-              description: "Target shelf ID, or null if directly in cabinet. Used by add_item and move_item.",
+              description: "Shelf ID. Used by add_item, move_item, update_shelf, remove_shelf.",
             },
             item: {
               type: "object",
@@ -59,14 +64,13 @@ export const inventoryTool: Anthropic.Tool = {
               },
               required: ["name", "quantity", "itemType"],
             },
-            // update_item / remove_item / move_item fields
             itemId: {
               type: "string",
               description: "The existing item's ID. Required for update_item, remove_item, move_item.",
             },
             changes: {
               type: "object",
-              description: "Fields to update for update_item.",
+              description: "Fields to update for update_item, update_cabinet, or update_shelf.",
               properties: {
                 name: { type: "string" },
                 quantity: { type: "integer", minimum: 0 },
@@ -81,7 +85,6 @@ export const inventoryTool: Anthropic.Tool = {
                 tags: { type: "array", items: { type: "string" } },
               },
             },
-            // move_item fields (cabinetId and shelfId above serve as target)
             toCabinetId: {
               type: "string",
               description: "Destination cabinet ID for move_item.",
@@ -89,6 +92,25 @@ export const inventoryTool: Anthropic.Tool = {
             toShelfId: {
               type: ["string", "null"],
               description: "Destination shelf ID for move_item, or null.",
+            },
+            // Cabinet-specific fields
+            cabinet: {
+              type: "object",
+              description: "Cabinet details for add_cabinet.",
+              properties: {
+                name: { type: "string" },
+                description: { type: ["string", "null"] },
+              },
+              required: ["name"],
+            },
+            // Shelf-specific fields
+            shelf: {
+              type: "object",
+              description: "Shelf details for add_shelf.",
+              properties: {
+                name: { type: "string" },
+              },
+              required: ["name"],
             },
           },
           required: ["type", "locationId"],

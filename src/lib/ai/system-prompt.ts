@@ -29,16 +29,34 @@ const TYPE_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
+export interface LocationStructure {
+  locationId: string;
+  locationName: string;
+  locationType: string;
+  cabinets: Array<{
+    cabinetId: string;
+    cabinetName: string;
+    description: string | null;
+    shelves: Array<{
+      shelfId: string;
+      shelfName: string;
+      position: number;
+    }>;
+  }>;
+}
+
 /**
  * Builds the system prompt injected into every AI chat request.
  * The inventory is formatted as a structured listing so Claude can reason
  * over it directly without any additional tool calls or DB queries.
  *
  * @param inventory  The user's full flat inventory (with entity IDs)
+ * @param structure  Full location → cabinet → shelf tree (includes empty cabinets/shelves)
  * @param activeLocationId  The location the user was viewing before opening the chat
  */
 export function buildSystemPrompt(
   inventory: FlatInventoryItem[],
+  structure?: LocationStructure[],
   activeLocationId?: string | null,
 ): string {
   const inventorySection =
@@ -46,8 +64,13 @@ export function buildSystemPrompt(
       ? "The user's inventory is currently empty."
       : formatInventory(inventory);
 
+  const structureSection =
+    structure && structure.length > 0
+      ? formatStructure(structure)
+      : "No locations or cabinets set up yet.";
+
   const activeLocationNote = activeLocationId
-    ? `\nThe user is currently viewing location ID: ${activeLocationId}. When they mention adding items without specifying a location, assume they mean this location.`
+    ? `\nThe user is currently viewing location ID: ${activeLocationId}. When they mention adding items, cabinets, or shelves without specifying a location, assume they mean this location.`
     : "";
 
   return `You are a smart home inventory assistant called Lorgy. You help users understand what they own, where to find things, and you can make changes to their inventory when asked.
@@ -70,9 +93,9 @@ export function buildSystemPrompt(
 - When a user asks "can I do X", identify what items X typically requires, then check the inventory for each.
 
 ## Inventory Action Rules (manage_inventory tool)
-- Use the manage_inventory tool ONLY when the user explicitly asks to add, remove, update, or move items.
+- Use the manage_inventory tool ONLY when the user explicitly asks to add, remove, update, or move items, cabinets, or shelves.
 - NEVER use the tool for read-only questions like "where are my scissors?" or "what do I have?"
-- Always use entity IDs from the inventory listing below — NEVER fabricate IDs.
+- Always use entity IDs from the inventory listing and structure below — NEVER fabricate IDs.
 - For "add" actions, pick the most logical cabinet and shelf based on:
   1. What the user said (e.g., "add to the kitchen cabinet")
   2. The active location context (see below)
@@ -83,10 +106,49 @@ export function buildSystemPrompt(
 - Infer itemType from world knowledge: hammer → OTHER, apples → FOOD, shoes → SHOES, etc.
 - For new items with no obvious type, use OTHER.
 - Tags and description are optional — only set them if the user mentions them.
+
+### Cabinet & Shelf Actions
+- **add_cabinet**: Creates a new cabinet in a location. Provide a descriptive name.
+- **update_cabinet**: Renames or updates a cabinet's description. Use the cabinet ID from the structure listing.
+- **remove_cabinet**: Deletes a cabinet and ALL its shelves and items. Warn the user if the cabinet has items.
+- **add_shelf**: Creates a new shelf inside a cabinet. Use the cabinet ID from the structure listing.
+- **update_shelf**: Renames a shelf. Use the shelf ID from the structure listing.
+- **remove_shelf**: Deletes a shelf. Items on the shelf become unassigned (moved to the cabinet root). Warn the user if the shelf has items.
 ${activeLocationNote}
 
-## User's Inventory
+## Location Structure (all cabinets and shelves)
+${structureSection}
+
+## User's Inventory (items)
 ${inventorySection}`;
+}
+
+function formatStructure(structure: LocationStructure[]): string {
+  const lines: string[] = [];
+
+  for (const loc of structure) {
+    lines.push(`**${loc.locationName}** (${loc.locationType}) [loc:${loc.locationId}]`);
+
+    if (loc.cabinets.length === 0) {
+      lines.push("  (no cabinets)");
+    }
+
+    for (const cab of loc.cabinets) {
+      const desc = cab.description ? ` — "${cab.description}"` : "";
+      lines.push(`  Cabinet: ${cab.cabinetName} [cab:${cab.cabinetId}]${desc}`);
+
+      if (cab.shelves.length === 0) {
+        lines.push("    (no shelves)");
+      } else {
+        for (const shelf of cab.shelves) {
+          lines.push(`    Shelf: ${shelf.shelfName} [shelf:${shelf.shelfId}] (pos: ${shelf.position})`);
+        }
+      }
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
 }
 
 function formatInventory(items: FlatInventoryItem[]): string {

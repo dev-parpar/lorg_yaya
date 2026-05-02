@@ -1,7 +1,8 @@
 import { getDatabase } from "@/lib/local-db/database";
 import { getFlatInventory } from "@/lib/local-db/queries/inventory";
+import { getLocationStructure } from "@/lib/local-db/queries/structure";
 import { useSQLiteQuery } from "./useSQLiteQuery";
-import type { FlatInventoryItem } from "@/types";
+import type { FlatInventoryItem, LocationStructure } from "@/types";
 
 /**
  * Returns the flat inventory list for the AI chat assistant.
@@ -25,5 +26,11 @@ export function useLocalInventory(
     [locationIds],
   );
 
-  return { inventory, isLoading: false as const };
+  const { data: structure } = useSQLiteQuery<LocationStructure[]>(
+    ["cabinets", "shelves"],
+    () => getLocationStructure(db, locations),
+    [locationIds],
+  );
+
+  return { inventory, structure, isLoading: false as const };
 }

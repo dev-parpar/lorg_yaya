@@ -250,16 +250,16 @@ export default function AssistantScreen() {
     staleTime: 1000 * 60 * 5,
   });
   const locationMeta = locations.map((l) => ({ id: l.id, name: l.name, type: l.type }));
-  const { inventory, isLoading: inventoryLoading } = useLocalInventory(locationMeta);
+  const { inventory, structure, isLoading: inventoryLoading } = useLocalInventory(locationMeta);
 
   const handleSend = useCallback(
     async (text?: string) => {
       const message = (text ?? input).trim();
       if (!message || isStreaming) return;
       setInput("");
-      await sendMessage(message, inventory, lastViewedLocationId);
+      await sendMessage(message, inventory, structure, lastViewedLocationId);
     },
-    [input, isStreaming, inventory, lastViewedLocationId, sendMessage],
+    [input, isStreaming, inventory, structure, lastViewedLocationId, sendMessage],
   );
 
   const scrollToBottom = useCallback(() => {

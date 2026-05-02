@@ -1,6 +1,6 @@
 import { View, StyleSheet, ActivityIndicator } from "react-native";
 import { useState } from "react";
-import { Plus, Pencil, Trash2, ArrowRightLeft, Check, X } from "lucide-react-native";
+import { Plus, Pencil, Trash2, ArrowRightLeft, Check, X, Package, Layers } from "lucide-react-native";
 import type { InventoryAction } from "@/types";
 import { ITEM_TYPE_LABELS } from "@/types";
 import { Text } from "@/components/ui/text";
@@ -18,6 +18,18 @@ function ActionIcon({ type }: { type: InventoryAction["type"] }) {
       return <Trash2 size={size} color="#DC2626" />;
     case "move_item":
       return <ArrowRightLeft size={size} color="#9333EA" />;
+    case "add_cabinet":
+      return <Package size={size} color="#16A34A" />;
+    case "update_cabinet":
+      return <Package size={size} color="#2563EB" />;
+    case "remove_cabinet":
+      return <Package size={size} color="#DC2626" />;
+    case "add_shelf":
+      return <Layers size={size} color="#16A34A" />;
+    case "update_shelf":
+      return <Layers size={size} color="#2563EB" />;
+    case "remove_shelf":
+      return <Layers size={size} color="#DC2626" />;
   }
 }
 
@@ -41,16 +53,41 @@ function actionLabel(action: InventoryAction): string {
       return "Remove item";
     case "move_item":
       return "Move item";
+    case "add_cabinet":
+      return `Add cabinet "${action.cabinet.name}"`;
+    case "update_cabinet": {
+      const parts: string[] = [];
+      if (action.changes.name) parts.push(`name → ${action.changes.name}`);
+      if (action.changes.description !== undefined) parts.push("description updated");
+      return `Update cabinet: ${parts.join(", ") || "cabinet"}`;
+    }
+    case "remove_cabinet":
+      return "Delete cabinet";
+    case "add_shelf":
+      return `Add shelf "${action.shelf.name}"`;
+    case "update_shelf": {
+      const parts: string[] = [];
+      if (action.changes.name) parts.push(`name → ${action.changes.name}`);
+      return `Update shelf: ${parts.join(", ") || "shelf"}`;
+    }
+    case "remove_shelf":
+      return "Delete shelf";
   }
 }
 
 function actionColor(type: InventoryAction["type"]): string {
   switch (type) {
     case "add_item":
+    case "add_cabinet":
+    case "add_shelf":
       return "#DCFCE7";
     case "update_item":
+    case "update_cabinet":
+    case "update_shelf":
       return "#DBEAFE";
     case "remove_item":
+    case "remove_cabinet":
+    case "remove_shelf":
       return "#FEE2E2";
     case "move_item":
       return "#F3E8FF";
