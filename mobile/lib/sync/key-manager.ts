@@ -1,3 +1,4 @@
+import * as ExpoCrypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import { keySharesApi } from "@/lib/api/key-shares";
 import { getLocationKey } from "./crypto";
@@ -41,7 +42,7 @@ export async function shareLocationKey(
 
   // v1: Encode key as base64 for transport. The nonce is a random
   // value used as a placeholder for the future wrapping scheme.
-  const nonce = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = ExpoCrypto.getRandomBytes(16);
 
   await keySharesApi.share(locationId, {
     recipientId,

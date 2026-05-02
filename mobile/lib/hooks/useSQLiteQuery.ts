@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { useLocalDbStore } from "@/lib/store/local-db-store";
 
 /**
@@ -11,40 +11,43 @@ import { useLocalDbStore } from "@/lib/store/local-db-store";
  *   3. All useSQLiteQuery hooks watching "items" re-run their queryFn
  *   4. UI re-renders with fresh data
  *
+ * The query runs synchronously during render (SQLite reads are fast).
+ * No useEffect/setState cycle — avoids "Maximum update depth exceeded".
+ *
  * @param tables  Table names to watch (e.g., ["cabinets"], ["items", "shelves"])
  * @param queryFn Synchronous function that reads from SQLite and returns data
- * @param deps    Additional dependencies that should trigger a re-query
+ * @param deps    Additional cache-key values (e.g. cabinetId) — re-queries when any changes
  */
 export function useSQLiteQuery<T>(
   tables: string[],
   queryFn: () => T,
   deps: unknown[] = [],
-): { data: T | undefined; isLoading: boolean; refetch: () => void } {
-  const tableVersions = useLocalDbStore((s) => s.tableVersions);
-
-  // Compute a combined version for all watched tables
-  const combinedVersion = tables.reduce(
-    (sum, t) => sum + (tableVersions[t] ?? 0),
-    0,
+): { data: T; isLoading: false; refetch: () => void } {
+  // Subscribe to the combined version for watched tables.
+  // Zustand's subscribe fires only when the selected value changes.
+  const combinedVersion = useLocalDbStore(
+    useCallback(
+      (s) => tables.reduce((sum, t) => sum + (s.tableVersions[t] ?? 0), 0),
+      // tables array is always a static literal at each call site
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      tables,
+    ),
   );
 
-  const [data, setData] = useState<T>();
-  const [isLoading, setIsLoading] = useState(true);
+  // Build a simple cache key from version + deps.
+  // Deps are primitives (strings, numbers, null) so JSON.stringify is safe.
+  const cacheKey = `${combinedVersion}:${JSON.stringify(deps)}`;
 
-  const runQuery = useCallback(() => {
-    setIsLoading(true);
-    try {
-      const result = queryFn();
-      setData(result);
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [combinedVersion, ...deps]);
+  // Cache: re-run queryFn only when the cache key changes.
+  const cacheRef = useRef<{ key: string; result: T } | null>(null);
 
-  useEffect(() => {
-    runQuery();
-  }, [runQuery]);
+  if (!cacheRef.current || cacheRef.current.key !== cacheKey) {
+    cacheRef.current = { key: cacheKey, result: queryFn() };
+  }
 
-  return { data, isLoading, refetch: runQuery };
+  const refetch = useCallback(() => {
+    cacheRef.current = null;
+  }, []);
+
+  return { data: cacheRef.current.result, isLoading: false, refetch };
 }

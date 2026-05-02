@@ -5,7 +5,7 @@ import { useLocalDbStore } from "@/lib/store/local-db-store";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { ApiRequestError } from "@/lib/api/client";
 import { fetchManifest, pullOplog, pushOplog } from "./sync-api";
-import { encrypt, decrypt, getOrCreateLocationKey } from "./crypto";
+import { encrypt, decrypt, getOrCreateLocationKey, sha256Hex } from "./crypto";
 import { serializeOps, parseOps, sortOps } from "./ndjson";
 import { shouldCompact, compactFromState } from "./compaction";
 import type { SyncManifest, Operation } from "@/lib/local-db/types";
@@ -211,10 +211,7 @@ export class SyncEngine {
       const oplogBase64 = btoa(binary);
 
       // Compute SHA-256 of the plaintext NDJSON for integrity.
-      const hashBuffer = await crypto.subtle.digest("SHA-256", plaintext);
-      const contentHash = Array.from(new Uint8Array(hashBuffer))
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
+      const contentHash = await sha256Hex(plaintext);
 
       // Build the device sequence index from merged ops.
       const deviceSeqs: Record<string, number> = {};

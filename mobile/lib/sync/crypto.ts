@@ -1,7 +1,10 @@
+import * as ExpoCrypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
+import { gcm } from "@noble/ciphers/aes";
 
 const KEY_PREFIX = "location_key_";
 const IV_LENGTH = 12;
+const KEY_LENGTH = 32; // AES-256
 
 // ── Base64 helpers (Hermes-safe, no Node Buffer) ──────────────────────────────
 
@@ -27,14 +30,7 @@ function base64ToUint8(base64: string): Uint8Array {
 export async function generateLocationKey(
   locationId: string,
 ): Promise<Uint8Array> {
-  const cryptoKey = await crypto.subtle.generateKey(
-    { name: "AES-GCM", length: 256 },
-    true,
-    ["encrypt", "decrypt"],
-  );
-
-  const rawBuffer = await crypto.subtle.exportKey("raw", cryptoKey);
-  const keyBytes = new Uint8Array(rawBuffer);
+  const keyBytes = ExpoCrypto.getRandomBytes(KEY_LENGTH);
 
   await SecureStore.setItemAsync(
     `${KEY_PREFIX}${locationId}`,
@@ -70,44 +66,40 @@ export async function getOrCreateLocationKey(
   return generateLocationKey(locationId);
 }
 
+// ── SHA-256 helper ───────────────────────────────────────────────────────────
+
+/**
+ * Compute SHA-256 hex digest of a Uint8Array.
+ * Uses expo-crypto instead of Web Crypto API (not available in React Native).
+ */
+export async function sha256Hex(data: Uint8Array): Promise<string> {
+  // Copy into a fresh ArrayBuffer to satisfy the BufferSource constraint
+  // (Uint8Array<ArrayBufferLike> isn't assignable to ArrayBufferView<ArrayBuffer>)
+  const buf = new ArrayBuffer(data.length);
+  new Uint8Array(buf).set(data);
+  const hashBuffer = await ExpoCrypto.digest(
+    ExpoCrypto.CryptoDigestAlgorithm.SHA256,
+    new Uint8Array(buf),
+  );
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 // ── Encrypt / Decrypt ─────────────────────────────────────────────────────────
 
 /**
- * Copy a Uint8Array into a new ArrayBuffer-backed Uint8Array.
- * This satisfies the TypeScript `BufferSource` constraint which requires
- * `ArrayBufferView<ArrayBuffer>` (not `ArrayBufferView<ArrayBufferLike>`).
- */
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const buf = new ArrayBuffer(bytes.length);
-  new Uint8Array(buf).set(bytes);
-  return buf;
-}
-
-/**
- * Encrypt plaintext with AES-256-GCM.
+ * Encrypt plaintext with AES-256-GCM using @noble/ciphers.
  * Output layout: [12-byte IV][ciphertext+tag]
  */
 export async function encrypt(
   key: Uint8Array,
   plaintext: Uint8Array,
 ): Promise<Uint8Array> {
-  const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
+  const iv = ExpoCrypto.getRandomBytes(IV_LENGTH);
+  const aes = gcm(key, iv);
+  const ciphertext = aes.encrypt(plaintext);
 
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    toArrayBuffer(key),
-    "AES-GCM",
-    false,
-    ["encrypt"],
-  );
-
-  const ciphertextBuffer = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    cryptoKey,
-    toArrayBuffer(plaintext),
-  );
-
-  const ciphertext = new Uint8Array(ciphertextBuffer);
   const result = new Uint8Array(IV_LENGTH + ciphertext.length);
   result.set(iv, 0);
   result.set(ciphertext, IV_LENGTH);
@@ -124,20 +116,6 @@ export async function decrypt(
 ): Promise<Uint8Array> {
   const iv = data.slice(0, IV_LENGTH);
   const ciphertext = data.slice(IV_LENGTH);
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "raw",
-    toArrayBuffer(key),
-    "AES-GCM",
-    false,
-    ["decrypt"],
-  );
-
-  const plaintextBuffer = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv },
-    cryptoKey,
-    toArrayBuffer(ciphertext),
-  );
-
-  return new Uint8Array(plaintextBuffer);
+  const aes = gcm(key, iv);
+  return aes.decrypt(ciphertext);
 }

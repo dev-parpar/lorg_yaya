@@ -11,7 +11,7 @@ import {
   TextInput as RNTextInput,
 } from "react-native";
 import { X, Plus, ChevronDown, CheckCircle2 } from "lucide-react-native";
-import type { BatchItemRow } from "@/lib/api/items";
+import type { BatchItemRow } from "@/types";
 import { ALL_ITEM_TYPES, ITEM_TYPE_LABELS } from "@/types";
 import type { ItemType } from "@/types";
 import { Screen } from "@/components/ui/screen";

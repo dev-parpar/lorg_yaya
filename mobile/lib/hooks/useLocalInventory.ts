@@ -16,11 +16,14 @@ export function useLocalInventory(
 ) {
   const db = getDatabase();
 
-  const { data: inventory, isLoading } = useSQLiteQuery<FlatInventoryItem[]>(
+  // Use location IDs as a stable cache key (locations array is a new reference each render)
+  const locationIds = locations.map((l) => l.id).join(",");
+
+  const { data: inventory } = useSQLiteQuery<FlatInventoryItem[]>(
     ["items", "cabinets", "shelves"],
     () => getFlatInventory(db, locations),
-    [locations],
+    [locationIds],
   );
 
-  return { inventory: inventory ?? [], isLoading };
+  return { inventory, isLoading: false as const };
 }

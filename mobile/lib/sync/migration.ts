@@ -3,7 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { getDatabase } from "@/lib/local-db/database";
 import { applyOps } from "@/lib/local-db/materializer";
 import { syncApi } from "@/lib/api/sync";
-import { getOrCreateLocationKey, encrypt } from "./crypto";
+import { getOrCreateLocationKey, encrypt, sha256Hex } from "./crypto";
 import { serializeOps } from "./ndjson";
 import { fetchManifest, pushOplog } from "./sync-api";
 import type { Operation, SyncManifest } from "@/lib/local-db/types";
@@ -98,10 +98,7 @@ export async function migrateLocation(
     const oplogBase64 = btoa(binary);
 
     // SHA-256 of the plaintext NDJSON for integrity verification
-    const hashBuffer = await crypto.subtle.digest("SHA-256", plaintext);
-    const contentHash = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const contentHash = await sha256Hex(plaintext);
 
     // Build device sequence index from the exported ops
     const deviceSeqs: Record<string, number> = {};
