@@ -5,7 +5,8 @@ import type { InventoryAction } from "@/types";
 import { ITEM_TYPE_LABELS } from "@/types";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { COLORS, SHADOWS } from "@/lib/theme/tokens";
+import { NeuView } from "@/components/ui/neu-view";
+import { COLORS, RADII, FONTS } from "@/lib/theme/tokens";
 
 function ActionIcon({ type }: { type: InventoryAction["type"] }) {
   const size = 14;
@@ -17,7 +18,7 @@ function ActionIcon({ type }: { type: InventoryAction["type"] }) {
     case "remove_item":
       return <Trash2 size={size} color="#DC2626" />;
     case "move_item":
-      return <ArrowRightLeft size={size} color="#9333EA" />;
+      return <ArrowRightLeft size={size} color="#6C63FF" />;
     case "add_cabinet":
       return <Package size={size} color="#16A34A" />;
     case "update_cabinet":
@@ -80,17 +81,17 @@ function actionColor(type: InventoryAction["type"]): string {
     case "add_item":
     case "add_cabinet":
     case "add_shelf":
-      return "#DCFCE7";
+      return "rgba(22, 163, 74, 0.1)";
     case "update_item":
     case "update_cabinet":
     case "update_shelf":
-      return "#DBEAFE";
+      return "rgba(37, 99, 235, 0.1)";
     case "remove_item":
     case "remove_cabinet":
     case "remove_shelf":
-      return "#FEE2E2";
+      return "rgba(220, 38, 38, 0.1)";
     case "move_item":
-      return "#F3E8FF";
+      return "rgba(108, 99, 255, 0.1)";
   }
 }
 
@@ -114,74 +115,75 @@ export function ActionCard({ actions, status, onConfirm, onReject }: ActionCardP
   }
 
   return (
-    <View style={styles.container}>
-      {/* Action list */}
-      <View style={styles.actionList}>
-        {actions.map((action, i) => (
-          <View
-            key={i}
-            style={[styles.actionRow, { backgroundColor: actionColor(action.type) }]}
-          >
-            <ActionIcon type={action.type} />
-            <Text variant="caption" style={styles.actionLabel} numberOfLines={2}>
-              {actionLabel(action)}
+    <NeuView variant="raised" radius={RADII.card} style={styles.outer}>
+      <View style={styles.container}>
+        {/* Action list */}
+        <View style={styles.actionList}>
+          {actions.map((action, i) => (
+            <NeuView key={i} variant="inset" radius={12}>
+              <View
+                style={[styles.actionRow, { backgroundColor: actionColor(action.type) }]}
+              >
+                <ActionIcon type={action.type} />
+                <Text variant="caption" style={styles.actionLabel} numberOfLines={2}>
+                  {actionLabel(action)}
+                </Text>
+              </View>
+            </NeuView>
+          ))}
+        </View>
+
+        {/* Footer */}
+        {status === "pending" && (
+          <View style={styles.buttonRow}>
+            <Button
+              onPress={handleConfirm}
+              disabled={confirming}
+              loading={confirming}
+              className="flex-1"
+            >
+              Confirm
+            </Button>
+            <Button
+              onPress={onReject}
+              variant="outline"
+              disabled={confirming}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </View>
+        )}
+
+        {status === "confirmed" && (
+          <View style={styles.statusRow}>
+            <Check size={14} color={COLORS.success} />
+            <Text variant="caption" style={{ color: COLORS.success, fontWeight: "600" }}>
+              Changes applied
             </Text>
           </View>
-        ))}
+        )}
+
+        {status === "rejected" && (
+          <View style={styles.statusRow}>
+            <X size={14} color={COLORS.mutedForeground} />
+            <Text variant="caption" style={{ color: COLORS.mutedForeground }}>
+              Cancelled
+            </Text>
+          </View>
+        )}
       </View>
-
-      {/* Footer */}
-      {status === "pending" && (
-        <View style={styles.buttonRow}>
-          <Button
-            onPress={handleConfirm}
-            disabled={confirming}
-            loading={confirming}
-            className="flex-1"
-          >
-            Confirm
-          </Button>
-          <Button
-            onPress={onReject}
-            variant="outline"
-            disabled={confirming}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-        </View>
-      )}
-
-      {status === "confirmed" && (
-        <View style={styles.statusRow}>
-          <Check size={14} color="#16A34A" />
-          <Text variant="caption" style={{ color: "#16A34A", fontWeight: "600" }}>
-            Changes applied
-          </Text>
-        </View>
-      )}
-
-      {status === "rejected" && (
-        <View style={styles.statusRow}>
-          <X size={14} color={COLORS.mutedForeground} />
-          <Text variant="caption" style={{ color: COLORS.mutedForeground }}>
-            Cancelled
-          </Text>
-        </View>
-      )}
-    </View>
+    </NeuView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     marginTop: 8,
-    borderWidth: 1.5,
-    borderColor: "#D4A853",
-    borderRadius: 12,
-    backgroundColor: COLORS.card,
+  },
+  container: {
+    borderRadius: RADII.card,
     overflow: "hidden",
-    ...SHADOWS.card,
   },
   actionList: {
     padding: 12,
@@ -191,13 +193,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   actionLabel: {
     flex: 1,
     color: COLORS.foreground,
+    fontFamily: FONTS.body,
     fontSize: 13,
   },
   buttonRow: {

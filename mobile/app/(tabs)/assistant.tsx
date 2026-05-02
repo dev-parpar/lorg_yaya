@@ -20,24 +20,25 @@ import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActionCard } from "@/components/ui/action-card";
 import { Text } from "@/components/ui/text";
+import { NeuView } from "@/components/ui/neu-view";
 import { locationsApi } from "@/lib/api/locations";
 import { useLocalInventory } from "@/lib/hooks/useLocalInventory";
 import { useLocalDbStore } from "@/lib/store/local-db-store";
 import { useAiChat } from "@/lib/hooks/useAiChat";
 import type { ChatMessage } from "@/types";
-import { COLORS, FONTS, SHADOWS } from "@/lib/theme/tokens";
+import { COLORS, RADII, NEU, FONTS } from "@/lib/theme/tokens";
 
-// ── Markdown stylesheet (themed for cork-board ink-on-paper feel) ─────────────
+// ── Markdown stylesheet ──────────────────────────────────────────────────────
 
 const markdownStyles = StyleSheet.create({
-  body: { fontSize: 14, color: COLORS.foreground, lineHeight: 21 },
+  body: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.foreground, lineHeight: 21 },
   paragraph: { marginTop: 0, marginBottom: 4 },
   strong: { fontWeight: "700" },
   em: { fontStyle: "italic" },
   table: {
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
+    borderColor: NEU.insetBorderDark,
+    borderRadius: 12,
     overflow: "hidden",
     marginTop: 8,
     marginBottom: 4,
@@ -46,7 +47,7 @@ const markdownStyles = StyleSheet.create({
   tr: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: NEU.insetBorderDark,
   },
   th: {
     flex: 1,
@@ -55,7 +56,7 @@ const markdownStyles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.mutedForeground,
     borderRightWidth: 1,
-    borderRightColor: COLORS.border,
+    borderRightColor: NEU.insetBorderDark,
   },
   td: {
     flex: 1,
@@ -63,18 +64,18 @@ const markdownStyles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.foreground,
     borderRightWidth: 1,
-    borderRightColor: COLORS.border,
+    borderRightColor: NEU.insetBorderDark,
   },
   code_inline: {
     backgroundColor: COLORS.mutedSurface,
     color: COLORS.primary,
-    borderRadius: 4,
+    borderRadius: 6,
     paddingHorizontal: 4,
     fontSize: 12,
   },
   fence: {
     backgroundColor: COLORS.mutedSurface,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     fontSize: 12,
   },
@@ -96,21 +97,14 @@ const EXAMPLE_PROMPTS = [
 
 function UserBubble({ content }: { content: string }) {
   return (
-    <View style={{ alignSelf: "flex-end", maxWidth: "82%", marginBottom: 12 }}>
-      <View
-        style={{
-          backgroundColor: COLORS.primary,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          borderRadius: 16,
-          borderTopRightRadius: 4,
-          ...SHADOWS.button,
-        }}
-      >
-        <RNText style={{ fontSize: 14, color: COLORS.primaryForeground, lineHeight: 21 }}>
-          {content}
-        </RNText>
-      </View>
+    <View style={styles.userBubbleOuter}>
+      <NeuView variant="raisedSmall" radius={RADII.button} innerStyle={{ backgroundColor: COLORS.primary }}>
+        <View style={styles.userBubbleInner}>
+          <RNText style={styles.userBubbleText}>
+            {content}
+          </RNText>
+        </View>
+      </NeuView>
     </View>
   );
 }
@@ -128,50 +122,34 @@ function AssistantBubble({
   const hasActions = message.actions && message.actions.length > 0;
 
   return (
-    <View style={{ width: "92%", marginBottom: 12 }}>
-      <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-        <View
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: 14,
-            backgroundColor: "rgba(185, 28, 28, 0.12)",
-            alignItems: "center",
-            justifyContent: "center",
-            marginTop: 2,
-            flexShrink: 0,
-          }}
-        >
-          <Sparkles size={15} color={COLORS.primary} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <View
-            style={{
-              backgroundColor: COLORS.card,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-              borderRadius: 16,
-              borderTopLeftRadius: 4,
-              ...SHADOWS.card,
-            }}
-          >
-            {isEmpty ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <ActivityIndicator size="small" color={COLORS.muted} />
-                <RNText style={{ fontSize: 14, color: COLORS.mutedForeground }}>
-                  Thinking…
-                </RNText>
-              </View>
-            ) : message.isStreaming ? (
-              <RNText style={{ fontSize: 14, color: COLORS.foreground, lineHeight: 21 }}>
-                {message.content + "▌"}
-              </RNText>
-            ) : (
-              <Markdown style={markdownStyles}>{message.content}</Markdown>
-            )}
+    <View style={styles.assistantBubbleOuter}>
+      <View style={styles.assistantRow}>
+        {/* Icon well — drilled into the surface */}
+        <NeuView variant="inset" radius={14} style={styles.iconWellOuter}>
+          <View style={styles.iconWell}>
+            <Sparkles size={15} color={COLORS.primary} />
           </View>
+        </NeuView>
+
+        <View style={{ flex: 1 }}>
+          <NeuView variant="raised" radius={RADII.button}>
+            <View style={styles.assistantBubbleInner}>
+              {isEmpty ? (
+                <View style={styles.thinkingRow}>
+                  <ActivityIndicator size="small" color={COLORS.muted} />
+                  <RNText style={styles.thinkingText}>
+                    Thinking…
+                  </RNText>
+                </View>
+              ) : message.isStreaming ? (
+                <RNText style={styles.streamingText}>
+                  {message.content + "▌"}
+                </RNText>
+              ) : (
+                <Markdown style={markdownStyles}>{message.content}</Markdown>
+              )}
+            </View>
+          </NeuView>
 
           {/* Action card below the text bubble */}
           {hasActions && onConfirm && onReject && (
@@ -188,41 +166,36 @@ function AssistantBubble({
   );
 }
 
-function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
+function ChatEmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
   return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingBottom: 48 }}>
-      <View style={{
-        width: 80, height: 80, borderRadius: 40,
-        backgroundColor: "rgba(185, 28, 28, 0.12)",
-        alignItems: "center", justifyContent: "center", marginBottom: 20,
-        ...SHADOWS.card,
-      }}>
-        <Sparkles size={38} color={COLORS.primary} />
-      </View>
-      <Text variant="h2" style={{ textAlign: "center", marginBottom: 8, color: COLORS.card }}>
+    <View style={styles.emptyContainer}>
+      {/* Raised icon plaque */}
+      <NeuView variant="raised" radius={40}>
+        <View style={styles.emptyIconWell}>
+          <Sparkles size={38} color={COLORS.primary} />
+        </View>
+      </NeuView>
+
+      <Text variant="h2" style={styles.emptyTitle}>
         Hi, I'm Lorgy
       </Text>
-      <Text variant="body" style={{ color: COLORS.mutedSurface, textAlign: "center", marginBottom: 32 }}>
+      <Text variant="muted" style={styles.emptyDesc}>
         Ask me anything about your inventory. I can find items, check if you
         have what you need, and tell you exactly where everything is stored.
       </Text>
 
-      <View style={{ width: "100%", gap: 8 }}>
+      <View style={styles.promptsContainer}>
         {EXAMPLE_PROMPTS.map((prompt) => (
           <TouchableOpacity
             key={prompt}
             onPress={() => onPrompt(prompt)}
             activeOpacity={0.75}
-            style={[{
-              backgroundColor: COLORS.card,
-              borderWidth: 1,
-              borderColor: COLORS.border,
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 12,
-            }, SHADOWS.card]}
           >
-            <Text style={{ color: COLORS.foreground, fontSize: 14 }}>{prompt}</Text>
+            <NeuView variant="raisedSmall" radius={RADII.button}>
+              <View style={styles.promptCard}>
+                <Text style={styles.promptText}>{prompt}</Text>
+              </View>
+            </NeuView>
           </TouchableOpacity>
         ))}
       </View>
@@ -238,12 +211,8 @@ export default function AssistantScreen() {
   const { messages, isStreaming, sendMessage, confirmActions, rejectActions, clearMessages } = useAiChat();
   const insets = useSafeAreaInsets();
   const lastViewedLocationId = useLocalDbStore((s) => s.lastViewedLocationId);
-  // On Android the keyboard height reported by the OS includes the gesture
-  // navigation bar, but our KeyboardAvoidingView sits above the tab bar.
-  // Adding the bottom inset to the offset compensates for that difference.
   const kbOffset = Platform.OS === "ios" ? 0 : 56 + insets.bottom;
 
-  // Location metadata still comes from PostgreSQL; inventory reads from local SQLite.
   const { data: locations = [] } = useQuery({
     queryKey: ["locations"],
     queryFn: locationsApi.list,
@@ -270,17 +239,17 @@ export default function AssistantScreen() {
     <TouchableOpacity
       onPress={clearMessages}
       disabled={messages.length === 0}
-      style={{
-        borderRadius: 15, padding: 8,
-        backgroundColor: "rgba(200, 167, 125, 0.35)",
-        opacity: messages.length === 0 ? 0.4 : 1,
-      }}
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
     >
-      <RotateCcw
-        size={18}
-        color={COLORS.foreground}
-      />
+      <NeuView
+        variant="inset"
+        radius={15}
+        style={{ opacity: messages.length === 0 ? 0.4 : 1 }}
+      >
+        <View style={styles.clearBtnInner}>
+          <RotateCcw size={16} color={COLORS.foreground} />
+        </View>
+      </NeuView>
     </TouchableOpacity>
   );
 
@@ -306,11 +275,9 @@ export default function AssistantScreen() {
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-            <EmptyState onPrompt={(text) => void handleSend(text)} />
+            <ChatEmptyState onPrompt={(text) => void handleSend(text)} />
           </ScrollView>
         ) : (
-          // Plain ScrollView + map instead of FlatList — avoids all FlatList
-          // item-caching issues when content updates rapidly during streaming.
           <ScrollView
             ref={scrollViewRef}
             onContentSizeChange={scrollToBottom}
@@ -332,53 +299,179 @@ export default function AssistantScreen() {
           </ScrollView>
         )}
 
-        {/* Input bar — cream paper feel */}
-        <View style={{
-          flexDirection: "row", alignItems: "flex-end", gap: 8,
-          paddingTop: 12, paddingBottom: 8,
-          borderTopWidth: 1.5, borderTopColor: COLORS.border,
-          marginTop: 4,
-        }}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder="Ask about your inventory…"
-            placeholderTextColor={COLORS.mutedForeground}
-            multiline
-            maxLength={2000}
-            editable={!isStreaming}
-            onSubmitEditing={() => void handleSend()}
-            style={{
-              flex: 1,
-              backgroundColor: COLORS.card,
-              borderRadius: 16,
-              borderWidth: 1.5,
-              borderColor: COLORS.border,
-              paddingHorizontal: 16,
-              paddingVertical: 10,
-              fontSize: 14,
-              color: COLORS.foreground,
-              maxHeight: 120,
-              ...SHADOWS.input,
-            }}
-          />
+        {/* Input bar — inset well + raised send button */}
+        <View style={styles.inputBar}>
+          <NeuView variant="inset" radius={RADII.button} style={{ flex: 1 }}>
+            <TextInput
+              value={input}
+              onChangeText={setInput}
+              placeholder="Ask about your inventory…"
+              placeholderTextColor={COLORS.mutedForeground}
+              multiline
+              maxLength={2000}
+              editable={!isStreaming}
+              onSubmitEditing={() => void handleSend()}
+              style={styles.inputField}
+            />
+          </NeuView>
+
           <TouchableOpacity
             onPress={() => void handleSend()}
             disabled={!input.trim() || isStreaming}
-            style={{
-              width: 40, height: 40,
-              borderRadius: 20,
-              backgroundColor: COLORS.primary,
-              alignItems: "center", justifyContent: "center",
-              opacity: !input.trim() || isStreaming ? 0.4 : 1,
-              ...SHADOWS.button,
-            }}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <SendHorizontal size={18} color="#fff" />
+            <NeuView
+              variant="raisedSmall"
+              radius={20}
+              innerStyle={{
+                backgroundColor: COLORS.primary,
+                opacity: !input.trim() || isStreaming ? 0.4 : 1,
+              }}
+            >
+              <View style={styles.sendBtn}>
+                <SendHorizontal size={18} color="#fff" />
+              </View>
+            </NeuView>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  // ── User bubble ────────────────────────────────────────────────────
+  userBubbleOuter: {
+    alignSelf: "flex-end",
+    maxWidth: "82%",
+    marginBottom: 12,
+  },
+  userBubbleInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: RADII.button,
+  },
+  userBubbleText: {
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    color: COLORS.primaryForeground,
+    lineHeight: 21,
+  },
+
+  // ── Assistant bubble ───────────────────────────────────────────────
+  assistantBubbleOuter: {
+    width: "92%",
+    marginBottom: 12,
+  },
+  assistantRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+  },
+  iconWellOuter: {
+    marginTop: 2,
+    flexShrink: 0,
+  },
+  iconWell: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assistantBubbleInner: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: RADII.button,
+  },
+  thinkingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  thinkingText: {
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    color: COLORS.mutedForeground,
+  },
+  streamingText: {
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    color: COLORS.foreground,
+    lineHeight: 21,
+  },
+
+  // ── Empty state ────────────────────────────────────────────────────
+  emptyContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+  },
+  emptyIconWell: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    textAlign: "center",
+    marginTop: 20,
+    marginBottom: 8,
+    color: COLORS.foreground,
+  },
+  emptyDesc: {
+    textAlign: "center",
+    marginBottom: 32,
+    color: COLORS.mutedForeground,
+  },
+  promptsContainer: {
+    width: "100%",
+    gap: 8,
+  },
+  promptCard: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: RADII.button,
+  },
+  promptText: {
+    fontFamily: FONTS.body,
+    color: COLORS.foreground,
+    fontSize: 14,
+  },
+
+  // ── Input bar ──────────────────────────────────────────────────────
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
+    marginTop: 4,
+  },
+  inputField: {
+    fontFamily: FONTS.body,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: COLORS.foreground,
+    maxHeight: 120,
+    borderRadius: RADII.button,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearBtnInner: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

@@ -5,7 +5,18 @@ import { Stack, router } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useFonts, SpecialElite_400Regular } from "@expo-google-fonts/special-elite";
+import { useFonts } from "expo-font";
+import {
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from "@expo-google-fonts/plus-jakarta-sans";
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_700Bold,
+} from "@expo-google-fonts/dm-sans";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { profilesApi } from "@/lib/api/profiles";
@@ -44,8 +55,16 @@ async function ensureProfile(userId: string, userMetadata: Record<string, unknow
 export default function RootLayout() {
   const { setSession, setLoading } = useAuthStore();
 
-  // Block render until the typewriter font is ready so there is no FOUT
-  const [fontsLoaded, fontError] = useFonts({ SpecialElite_400Regular });
+  // Load neumorphic fonts — block render until ready (no FOUT)
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_700Bold,
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -72,11 +91,11 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, [setSession, setLoading]);
 
-  // Show a cork-toned splash while the typewriter font loads
+  // Neumorphic splash — cool grey surface with accent spinner
   if (!fontsLoaded && !fontError) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.cork }}>
-        <ActivityIndicator color={COLORS.card} size="large" />
+        <ActivityIndicator color={COLORS.primary} size="large" />
       </View>
     );
   }
@@ -84,7 +103,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(tabs)" />

@@ -1,7 +1,7 @@
 import { KeyboardAvoidingView, Platform, ScrollView, View, ViewStyle } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { ReactNode } from "react";
-import { CorkBackground } from "./backgrounds/CorkBackground";
+import { COLORS } from "@/lib/theme/tokens";
 
 interface ScreenProps {
   children: ReactNode;
@@ -53,12 +53,13 @@ export function Screen({
   );
 
   return (
-    // SafeAreaView background matches cork so the area behind the status bar
-    // is the same colour as the rest of the screen.
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#8B6D47" }} edges={edges}>
-      <CorkBackground style={{ flex: 1 }}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: COLORS.cork }}
+      edges={edges}
+    >
+      <View style={{ flex: 1, backgroundColor: COLORS.cork }}>
         {body}
-      </CorkBackground>
+      </View>
     </SafeAreaView>
   );
 }
