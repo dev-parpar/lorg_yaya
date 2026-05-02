@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo-google-fonts/plus-jakarta-sans": "^0.4.2",
     "@expo-google-fonts/special-elite": "^0.4.1",
     "@expo/metro-config": "~55.0.9",
     "@noble/ciphers": "^2.2.0",

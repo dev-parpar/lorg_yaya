@@ -1,8 +1,8 @@
 import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { Minus, Plus } from "lucide-react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "@/components/ui/text";
-import { COLORS, GRADIENTS, RADII, SHADOWS } from "@/lib/theme/tokens";
+import { NeuView } from "@/components/ui/neu-view";
+import { COLORS, RADII, FONTS } from "@/lib/theme/tokens";
 
 interface QuantityStepperProps {
   value: number;
@@ -12,9 +12,8 @@ interface QuantityStepperProps {
 }
 
 /**
- * Skeuomorphic wooden +/− stepper.
- * Each button uses the outline button gradient (cream paper look) with a
- * depth edge. The value is displayed on a matching paper swatch.
+ * Neumorphic +/- stepper.
+ * Buttons are raised from the surface; the value sits in an inset well.
  */
 export function QuantityStepper({
   value,
@@ -34,14 +33,11 @@ export function QuantityStepper({
         <Minus size={14} color={atMin ? COLORS.muted : COLORS.foreground} />
       </StepButton>
 
-      <View style={styles.valueShadow}>
-        <LinearGradient
-          colors={GRADIENTS.outlineButton}
-          style={styles.valueBox}
-        >
+      <NeuView variant="inset" radius={RADII.input}>
+        <View style={styles.valueBox}>
           <Text style={styles.valueText}>{value}</Text>
-        </LinearGradient>
-      </View>
+        </View>
+      </NeuView>
 
       <StepButton
         onPress={() => onChange(Math.min(max, value + 1))}
@@ -70,14 +66,11 @@ function StepButton({
       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       style={disabled ? { opacity: 0.45 } : undefined}
     >
-      <View style={styles.btnDepth}>
-        <LinearGradient
-          colors={GRADIENTS.outlineButton}
-          style={styles.btnGradient}
-        >
+      <NeuView variant="raisedSmall" radius={RADII.button}>
+        <View style={styles.btnInner}>
           {children}
-        </LinearGradient>
-      </View>
+        </View>
+      </NeuView>
     </TouchableOpacity>
   );
 }
@@ -86,38 +79,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
-  btnDepth: {
-    ...SHADOWS.button,
+  btnInner: {
+    width: 32,
+    height: 32,
     borderRadius: RADII.button,
-    borderWidth: 1,
-    borderBottomWidth: 3,
-    borderColor: COLORS.outlineDepth,
-  },
-  btnGradient: {
-    borderRadius: RADII.button - 1,
-    width: 30,
-    height: 30,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
-  },
-  valueShadow: {
-    ...SHADOWS.input,
-    borderRadius: RADII.input,
   },
   valueBox: {
+    width: 40,
+    height: 32,
     borderRadius: RADII.input,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    width: 36,
-    height: 30,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
   },
   valueText: {
+    fontFamily: FONTS.bodyMedium,
     fontSize: 13,
     fontWeight: "700",
     color: COLORS.foreground,

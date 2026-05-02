@@ -4,8 +4,7 @@ import { useAuthStore } from "@/lib/store/auth-store";
 import { useSyncManager } from "@/lib/hooks/useSyncManager";
 import { View, ActivityIndicator, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { WoodStrip } from "@/components/ui/backgrounds/WoodStrip";
-import { COLORS } from "@/lib/theme/tokens";
+import { COLORS, NEU } from "@/lib/theme/tokens";
 
 export default function TabsLayout() {
   const { session, isLoading } = useAuthStore();
@@ -20,7 +19,7 @@ export default function TabsLayout() {
   if (isLoading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.cork }}>
-        <ActivityIndicator size="large" color={COLORS.card} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -38,13 +37,14 @@ export default function TabsLayout() {
         tabBarStyle: {
           height: tabBarHeight,
           paddingBottom: insets.bottom,
-          borderTopWidth: 1,
-          borderTopColor: "rgba(212, 168, 83, 0.3)",
+          backgroundColor: COLORS.cork,
+          borderTopWidth: 0,
+          // Top edge shadow to separate tab bar from content
+          ...NEU.darkShadow,
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.15,
+          elevation: 8,
         },
-        // Dark walnut wood strip as the tab bar background
-        tabBarBackground: () => (
-          <WoodStrip style={{ flex: 1 }} />
-        ),
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: "600",

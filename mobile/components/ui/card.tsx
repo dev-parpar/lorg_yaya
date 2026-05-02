@@ -1,7 +1,7 @@
-import { View, ViewStyle, TouchableOpacity, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import { ViewStyle, TouchableOpacity, View } from "react-native";
 import { ReactNode } from "react";
-import { COLORS, GRADIENTS, RADII, SHADOWS } from "@/lib/theme/tokens";
+import { NeuView } from "./neu-view";
+import { RADII } from "@/lib/theme/tokens";
 
 interface CardProps {
   children: ReactNode;
@@ -11,66 +11,26 @@ interface CardProps {
 }
 
 /**
- * Skeuomorphic note-card.
- * Renders as a cream-gradient paper card pinned to the cork board with a
- * visible red pushpin dot in the top-left corner.
+ * Neumorphic card.
+ * Appears extruded from the surface — same background color, depth
+ * defined entirely by dual shadows. No borders, no gradients, no pushpins.
  */
 export function Card({ children, onPress, style }: CardProps) {
   const inner = (
-    <LinearGradient
-      colors={GRADIENTS.card}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.3, y: 1 }}
-      style={[styles.gradient, style]}
-    >
-      {/* Red pushpin dot */}
-      <View style={styles.pin} />
-      {children}
-    </LinearGradient>
+    <NeuView variant="raised" radius={RADII.card} style={style}>
+      <View style={{ padding: 16, borderRadius: RADII.card }}>
+        {children}
+      </View>
+    </NeuView>
   );
 
   if (onPress) {
     return (
-      <TouchableOpacity
-        onPress={onPress}
-        activeOpacity={0.82}
-        style={styles.shadow}
-      >
+      <TouchableOpacity onPress={onPress} activeOpacity={0.82}>
         {inner}
       </TouchableOpacity>
     );
   }
 
-  return <View style={styles.shadow}>{inner}</View>;
+  return inner;
 }
-
-const styles = StyleSheet.create({
-  shadow: {
-    ...SHADOWS.card,
-    borderRadius: RADII.card,
-  },
-  gradient: {
-    borderRadius: RADII.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingTop: 24,   // extra top padding so the pin lives in the margin zone
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    overflow: "hidden",
-  },
-  pin: {
-    position: "absolute",
-    top: 10,
-    left: 16,
-    width: RADII.pin * 2,
-    height: RADII.pin * 2,
-    borderRadius: RADII.pin,
-    backgroundColor: COLORS.primary,
-    // Pin bead shadow
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 2,
-    elevation: 4,
-  },
-});

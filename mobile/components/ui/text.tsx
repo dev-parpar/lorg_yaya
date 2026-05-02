@@ -6,10 +6,9 @@ interface StyledTextProps extends TextProps {
 }
 
 /**
- * Skeuomorphic themed Text.
- * Headings (h1, h2, h3) use the Special Elite typewriter font.
- * Body / caption / muted use the system font for legibility at small sizes.
- * All variants use the dark ink foreground palette.
+ * Neumorphic themed Text.
+ * Headings use Plus Jakarta Sans (bold/extrabold) for a modern geometric feel.
+ * Body / caption / muted use DM Sans for clean legibility.
  */
 export function Text({ variant = "body", style, ...props }: StyledTextProps) {
   return (
@@ -19,36 +18,39 @@ export function Text({ variant = "body", style, ...props }: StyledTextProps) {
 
 const styles = StyleSheet.create({
   h1: {
-    fontFamily: FONTS.typewriter,
-    fontSize: 26,
+    fontFamily: FONTS.display,
+    fontSize: 28,
     color: COLORS.foreground,
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
   },
   h2: {
     fontFamily: FONTS.typewriter,
     fontSize: 20,
     color: COLORS.foreground,
-    letterSpacing: 0.4,
+    letterSpacing: -0.3,
   },
   h3: {
     fontFamily: FONTS.typewriter,
     fontSize: 16,
     color: COLORS.foreground,
-    letterSpacing: 0.3,
+    letterSpacing: -0.2,
   },
   body: {
+    fontFamily: FONTS.body,
     fontSize: 14,
     color: COLORS.foreground,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   caption: {
+    fontFamily: FONTS.body,
     fontSize: 12,
     color: COLORS.mutedForeground,
     lineHeight: 17,
   },
   muted: {
+    fontFamily: FONTS.body,
     fontSize: 14,
     color: COLORS.mutedForeground,
-    lineHeight: 20,
+    lineHeight: 21,
   },
 });

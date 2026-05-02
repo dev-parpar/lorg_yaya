@@ -1,6 +1,7 @@
 import { TextInput, TextInputProps, View, StyleSheet } from "react-native";
 import { Text } from "./text";
-import { COLORS, RADII, SHADOWS } from "@/lib/theme/tokens";
+import { NeuView } from "./neu-view";
+import { COLORS, RADII, FONTS } from "@/lib/theme/tokens";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -8,9 +9,9 @@ interface InputProps extends TextInputProps {
 }
 
 /**
- * Skeuomorphic paper form field.
- * Renders as a cream note-paper rectangle with a warm ink border.
- * Labels use the muted ink colour; error state adds a red border.
+ * Neumorphic input field.
+ * Renders as an inset well "pressed into" the surface.
+ * Focus deepens the well. Error state adds an accent ring.
  */
 export function Input({ label, error, style, ...props }: InputProps) {
   return (
@@ -18,17 +19,17 @@ export function Input({ label, error, style, ...props }: InputProps) {
       {label && (
         <Text style={styles.label}>{label}</Text>
       )}
-      <View style={[styles.fieldShadow, error ? styles.errorShadow : null]}>
+      <NeuView
+        variant={error ? "insetDeep" : "inset"}
+        radius={RADII.input}
+        style={error ? styles.errorRing : undefined}
+      >
         <TextInput
-          style={[
-            styles.field,
-            error ? styles.errorBorder : null,
-            style,
-          ]}
+          style={[styles.field, style]}
           placeholderTextColor={COLORS.mutedForeground}
           {...props}
         />
-      </View>
+      </NeuView>
       {error && (
         <Text style={styles.errorText}>{error}</Text>
       )}
@@ -38,36 +39,29 @@ export function Input({ label, error, style, ...props }: InputProps) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: 4,
+    gap: 6,
   },
   label: {
+    fontFamily: FONTS.bodyMedium,
     fontSize: 12,
     fontWeight: "600",
     color: COLORS.mutedForeground,
-    marginBottom: 4,
+    marginBottom: 2,
     letterSpacing: 0.3,
   },
-  fieldShadow: {
-    ...SHADOWS.input,
-    borderRadius: RADII.input,
-  },
   field: {
-    backgroundColor: COLORS.card,
-    borderRadius: RADII.input,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    fontFamily: FONTS.body,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
     fontSize: 14,
     color: COLORS.foreground,
+    borderRadius: RADII.input,
   },
-  errorShadow: {
-    shadowColor: COLORS.destructive,
-  },
-  errorBorder: {
+  errorRing: {
     borderColor: COLORS.destructive,
   },
   errorText: {
+    fontFamily: FONTS.body,
     fontSize: 11,
     color: COLORS.destructive,
     marginTop: 2,

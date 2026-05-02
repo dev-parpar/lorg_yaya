@@ -1,8 +1,8 @@
 import { TouchableOpacity, ActivityIndicator, ViewStyle, StyleSheet, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Text } from "./text";
+import { NeuView } from "./neu-view";
 import { ReactNode } from "react";
-import { COLORS, GRADIENTS, RADII, SHADOWS } from "@/lib/theme/tokens";
+import { COLORS, RADII, FONTS } from "@/lib/theme/tokens";
 
 interface ButtonProps {
   onPress: () => void;
@@ -14,38 +14,12 @@ interface ButtonProps {
   style?: ViewStyle;
 }
 
-const CONFIG = {
-  primary: {
-    gradient: GRADIENTS.primaryButton as unknown as readonly [string, string, ...string[]],
-    depthColor: COLORS.primaryDepth,
-    textColor: COLORS.primaryForeground,
-    shadow: SHADOWS.button,
-  },
-  outline: {
-    gradient: GRADIENTS.outlineButton as unknown as readonly [string, string, ...string[]],
-    depthColor: COLORS.outlineDepth,
-    textColor: COLORS.foreground,
-    shadow: SHADOWS.button,
-  },
-  destructive: {
-    gradient: GRADIENTS.destructiveButton as unknown as readonly [string, string, ...string[]],
-    depthColor: COLORS.destructive,
-    textColor: COLORS.destructiveForeground,
-    shadow: SHADOWS.button,
-  },
-  ghost: {
-    gradient: null,
-    depthColor: "transparent",
-    textColor: COLORS.primary,
-    shadow: null,
-  },
-} as const;
-
 /**
- * Skeuomorphic physical button.
- * Primary / outline / destructive variants use a LinearGradient surface with
- * a dark bottom border that simulates physical depth (the "depth edge").
- * Ghost buttons are transparent with ink-coloured text.
+ * Neumorphic button.
+ * - Primary: Accent violet surface, raised from the background.
+ * - Outline: Same-surface raised, blends with the background.
+ * - Destructive: Red surface, raised.
+ * - Ghost: No depth, just tinted text.
  */
 export function Button({
   onPress,
@@ -55,10 +29,8 @@ export function Button({
   disabled = false,
   style,
 }: ButtonProps) {
-  const cfg = CONFIG[variant];
   const isDisabled = disabled || loading;
 
-  // Ghost variant — no gradient, no shadow
   if (variant === "ghost") {
     return (
       <TouchableOpacity
@@ -70,11 +42,22 @@ export function Button({
         {loading ? (
           <ActivityIndicator color={COLORS.primary} size="small" />
         ) : (
-          <Text style={[styles.ghostText, { color: cfg.textColor }]}>{children}</Text>
+          <Text style={[styles.ghostText, { color: COLORS.primary }]}>{children}</Text>
         )}
       </TouchableOpacity>
     );
   }
+
+  const isPrimary = variant === "primary";
+  const isDestructive = variant === "destructive";
+  const bgColor = isPrimary
+    ? COLORS.primary
+    : isDestructive
+      ? COLORS.destructive
+      : COLORS.cork;
+  const textColor = isPrimary || isDestructive
+    ? COLORS.primaryForeground
+    : COLORS.foreground;
 
   return (
     <TouchableOpacity
@@ -83,54 +66,36 @@ export function Button({
       activeOpacity={0.85}
       style={[isDisabled && styles.disabled, style]}
     >
-      {/* Depth edge — the "raised" illusion */}
-      <View
-        style={[
-          cfg.shadow ?? {},
-          styles.depthWrapper,
-          { borderBottomColor: cfg.depthColor, borderColor: cfg.depthColor },
-        ]}
+      <NeuView
+        variant="raisedSmall"
+        radius={RADII.button}
+        innerStyle={{ backgroundColor: bgColor }}
       >
-        <LinearGradient
-          colors={cfg.gradient!}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.gradient}
-        >
-          <View style={styles.inner}>
-            {loading ? (
-              <ActivityIndicator color={cfg.textColor} size="small" />
-            ) : (
-              <Text style={[styles.label, { color: cfg.textColor }]}>{children}</Text>
-            )}
-          </View>
-        </LinearGradient>
-      </View>
+        <View style={styles.inner}>
+          {loading ? (
+            <ActivityIndicator color={textColor} size="small" />
+          ) : (
+            <Text style={[styles.label, { color: textColor }]}>{children}</Text>
+          )}
+        </View>
+      </NeuView>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  depthWrapper: {
-    borderRadius: RADII.button,
-    borderWidth: 1,
-    borderBottomWidth: 4,
-    overflow: "visible",
-  },
-  gradient: {
-    borderRadius: RADII.button - 1,
-    overflow: "hidden",
-  },
   inner: {
-    paddingVertical: 13,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     alignItems: "center",
     justifyContent: "center",
+    borderRadius: RADII.button,
   },
   label: {
+    fontFamily: FONTS.bodyMedium,
     fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.3,
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   ghostBase: {
     paddingVertical: 10,
@@ -140,6 +105,7 @@ const styles = StyleSheet.create({
     borderRadius: RADII.button,
   },
   ghostText: {
+    fontFamily: FONTS.bodyMedium,
     fontSize: 14,
     fontWeight: "600",
   },

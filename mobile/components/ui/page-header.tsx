@@ -1,10 +1,10 @@
 import { ReactNode } from "react";
 import { View, TouchableOpacity, StyleSheet } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Plus } from "lucide-react-native";
 import { Text } from "./text";
-import { COLORS, GRADIENTS, RADII, SHADOWS } from "@/lib/theme/tokens";
+import { NeuView } from "./neu-view";
+import { COLORS, RADII } from "@/lib/theme/tokens";
 
 interface PageHeaderProps {
   title: string;
@@ -15,10 +15,9 @@ interface PageHeaderProps {
 }
 
 /**
- * Skeuomorphic masking-tape header.
- * The title sits on a horizontal strip that mimics a piece of cream masking
- * tape stuck onto the cork board. A warm gradient + torn-edge shadows give
- * it tactile depth without any images.
+ * Neumorphic page header.
+ * A softly raised strip that holds the title, optional back button,
+ * and right-side actions. Replaces the cork-theme masking tape.
  */
 export function PageHeader({
   title,
@@ -31,51 +30,54 @@ export function PageHeader({
 
   return (
     <View style={styles.container}>
-      {/* ── Tape strip ───────────────────────────────────────────── */}
-      <LinearGradient
-        colors={GRADIENTS.header}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.tape}
-      >
-        {/* Left side: back button or spacer */}
-        <View style={styles.left}>
-          {showBack && (
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <ArrowLeft size={18} color={COLORS.foreground} />
-            </TouchableOpacity>
-          )}
-        </View>
+      <NeuView variant="raisedSmall" radius={RADII.button}>
+        <View style={styles.inner}>
+          {/* Left: back button or spacer */}
+          <View style={styles.left}>
+            {showBack && (
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.iconBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <NeuView variant="inset" radius={15} innerStyle={styles.iconWell}>
+                  <ArrowLeft size={16} color={COLORS.foreground} />
+                </NeuView>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Center: title & subtitle */}
-        <View style={styles.center}>
-          <Text variant="h2" style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          {subtitle && (
-            <Text style={styles.subtitle} numberOfLines={1}>
-              {subtitle}
+          {/* Center: title & subtitle */}
+          <View style={styles.center}>
+            <Text variant="h2" style={styles.title} numberOfLines={1}>
+              {title}
             </Text>
-          )}
-        </View>
+            {subtitle && (
+              <Text style={styles.subtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
+          </View>
 
-        {/* Right: custom element or + button */}
-        <View style={styles.right}>
-          {rightElement ?? (onAdd ? (
-            <TouchableOpacity
-              onPress={onAdd}
-              style={styles.addBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Plus size={18} color={COLORS.primaryForeground} />
-            </TouchableOpacity>
-          ) : null)}
+          {/* Right: custom element or + button */}
+          <View style={styles.right}>
+            {rightElement ?? (onAdd ? (
+              <TouchableOpacity
+                onPress={onAdd}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <NeuView
+                  variant="raisedSmall"
+                  radius={15}
+                  innerStyle={{ ...styles.addBtn, backgroundColor: COLORS.primary }}
+                >
+                  <Plus size={16} color={COLORS.primaryForeground} />
+                </NeuView>
+              </TouchableOpacity>
+            ) : null)}
+          </View>
         </View>
-      </LinearGradient>
+      </NeuView>
     </View>
   );
 }
@@ -85,16 +87,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     marginHorizontal: -4,
   },
-  tape: {
+  inner: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: RADII.input,
-    ...SHADOWS.header,
-    // Simulate torn-edge feel with a slightly uneven border
-    borderWidth: 1,
-    borderColor: "rgba(184, 145, 75, 0.4)",
+    paddingHorizontal: 14,
+    borderRadius: RADII.button,
   },
   left: {
     width: 36,
@@ -118,11 +116,13 @@ const styles = StyleSheet.create({
     marginTop: 1,
     textAlign: "center",
   },
-  backBtn: {
+  iconBtn: {
     width: 30,
     height: 30,
-    borderRadius: 15,
-    backgroundColor: "rgba(200, 167, 125, 0.4)",
+  },
+  iconWell: {
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -130,13 +130,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: COLORS.primaryDepth,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 4,
   },
 });
