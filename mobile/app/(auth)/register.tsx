@@ -3,6 +3,7 @@ import { View, KeyboardAvoidingView, Platform, TouchableOpacity } from "react-na
 import { Link, router } from "expo-router";
 import { supabase } from "@/lib/auth/supabase";
 import { profilesApi } from "@/lib/api/profiles";
+import { posthog } from "@/lib/analytics/posthog";
 import { Screen } from "@/components/ui/screen";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
@@ -135,6 +136,8 @@ export default function RegisterScreen() {
         setLoading(false);
         return;
       }
+
+      posthog?.capture("user_signed_up", { method: "email" });
 
       // Step 2: If we have an immediate session (email confirmation disabled),
       // create the profile straight away.

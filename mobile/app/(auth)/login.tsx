@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, KeyboardAvoidingView, Platform, TouchableOpacity } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/auth/supabase";
+import { posthog } from "@/lib/analytics/posthog";
 import { Screen } from "@/components/ui/screen";
 import { Text } from "@/components/ui/text";
 import { Input } from "@/components/ui/input";
@@ -28,6 +29,10 @@ export default function LoginScreen() {
     });
 
     setLoading(false);
+
+    if (!authError) {
+      posthog?.capture("user_logged_in", { method: "email" });
+    }
 
     if (authError) {
       const msg = authError.message.toLowerCase();

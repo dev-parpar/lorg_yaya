@@ -4,6 +4,7 @@ import { getDatabase } from "@/lib/local-db/database";
 import { getCabinets } from "@/lib/local-db/queries/cabinets";
 import { writeOp } from "@/lib/local-db/operations";
 import { useSQLiteQuery } from "./useSQLiteQuery";
+import { posthog } from "@/lib/analytics/posthog";
 import type { CabinetWithCounts } from "@/types";
 import type { AddCabinetPayload, UpdateCabinetPayload, DeleteCabinetPayload } from "@/lib/local-db/types";
 
@@ -26,6 +27,7 @@ export function useLocalCabinets(locationId: string) {
         signedImageUrl: null,
       };
       await writeOp("add_cabinet", payload, locationId);
+      posthog?.capture("cabinet_created", { locationId });
     },
     [locationId],
   );

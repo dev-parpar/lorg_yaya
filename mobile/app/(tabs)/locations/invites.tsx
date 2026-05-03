@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Home, Building2, Mail } from "lucide-react-native";
 import { invitesApi } from "@/lib/api/invites";
+import { posthog } from "@/lib/analytics/posthog";
 import type { Invite } from "@/types";
 import { Screen } from "@/components/ui/screen";
 import { PageHeader } from "@/components/ui/page-header";
@@ -65,9 +66,12 @@ export default function InvitesScreen() {
   const respondMutation = useMutation({
     mutationFn: ({ inviteId, action }: { inviteId: string; action: "accept" | "decline" }) =>
       invitesApi.respond(inviteId, action),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["invites"] });
       queryClient.invalidateQueries({ queryKey: ["locations"] });
+      if (variables.action === "accept") {
+        posthog?.capture("invite_accepted");
+      }
     },
   });
 

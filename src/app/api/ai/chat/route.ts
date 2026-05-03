@@ -7,6 +7,7 @@ import { aiConfig } from "@/lib/ai/config";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { inventoryTool } from "@/lib/ai/tools";
 import { logger } from "@/lib/logger";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 const flatInventoryItemSchema = z.object({
   location: z.string(),
@@ -137,6 +138,13 @@ export async function POST(request: NextRequest) {
         summary: toolInput.summary.slice(0, 100),
       });
 
+      captureEvent(userId, "ai_chat_sent", {
+        inventorySize: inventory.length,
+        historyLength: history.length,
+        hadToolUse: true,
+        actionCount: toolInput.actions.length,
+      });
+
       // Return structured JSON response
       return NextResponse.json(
         {
@@ -161,6 +169,12 @@ export async function POST(request: NextRequest) {
 
     logger.info("[ai/chat] Text-only response", {
       length: textContent.length,
+    });
+
+    captureEvent(userId, "ai_chat_sent", {
+      inventorySize: inventory.length,
+      historyLength: history.length,
+      hadToolUse: false,
     });
 
     return new Response(textContent, {

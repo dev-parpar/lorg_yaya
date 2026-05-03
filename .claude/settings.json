@@ -9,7 +9,8 @@
       "Bash(npm run:*)",
       "Bash(git stash:*)",
       "Bash(adb shell:*)",
-      "Bash(emulator -list-avds)"
+      "Bash(emulator -list-avds)",
+      "Bash(git checkout:*)"
     ]
   }
 }

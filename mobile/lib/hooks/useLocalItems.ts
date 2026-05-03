@@ -4,6 +4,7 @@ import { getDatabase } from "@/lib/local-db/database";
 import { getItems } from "@/lib/local-db/queries/items";
 import { writeOp } from "@/lib/local-db/operations";
 import { useSQLiteQuery } from "./useSQLiteQuery";
+import { posthog } from "@/lib/analytics/posthog";
 import type { Item, ItemType } from "@/types";
 import type {
   AddItemPayload,
@@ -48,6 +49,7 @@ export function useLocalItems(
         tags: input.tags ?? [],
       };
       await writeOp("add_item", payload, locationId);
+      posthog?.capture("item_added", { locationId, itemType: payload.itemType });
       return payload.itemId;
     },
     [cabinetId, locationId],
@@ -77,6 +79,7 @@ export function useLocalItems(
         })),
       };
       await writeOp("batch_add_items", payload, locationId);
+      posthog?.capture("items_batch_added", { locationId, count: payload.items.length });
     },
     [cabinetId, locationId],
   );
@@ -85,6 +88,7 @@ export function useLocalItems(
     async (itemId: string, changes: UpdateItemPayload["changes"]) => {
       const payload: UpdateItemPayload = { itemId, changes };
       await writeOp("update_item", payload, locationId);
+      posthog?.capture("item_updated", { locationId });
     },
     [locationId],
   );
@@ -93,6 +97,7 @@ export function useLocalItems(
     async (itemId: string) => {
       const payload: DeleteItemPayload = { itemId };
       await writeOp("delete_item", payload, locationId);
+      posthog?.capture("item_removed", { locationId });
     },
     [locationId],
   );
