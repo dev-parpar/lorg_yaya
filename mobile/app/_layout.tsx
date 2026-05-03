@@ -17,9 +17,11 @@ import {
   DMSans_500Medium,
   DMSans_700Bold,
 } from "@expo-google-fonts/dm-sans";
+import { PostHogProvider } from "posthog-react-native";
 import { supabase } from "@/lib/auth/supabase";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { profilesApi } from "@/lib/api/profiles";
+import { posthog } from "@/lib/analytics/posthog";
 import { COLORS } from "@/lib/theme/tokens";
 
 const queryClient = new QueryClient({
@@ -73,6 +75,10 @@ export default function RootLayout() {
 
       if (session?.user) {
         ensureProfile(session.user.id, session.user.user_metadata);
+        posthog?.identify(session.user.id, {
+          email: session.user.email ?? null,
+          username: (session.user.user_metadata?.username as string) ?? null,
+        });
       }
     });
 
@@ -83,7 +89,12 @@ export default function RootLayout() {
 
       if (session?.user) {
         ensureProfile(session.user.id, session.user.user_metadata);
+        posthog?.identify(session.user.id, {
+          email: session.user.email ?? null,
+          username: (session.user.user_metadata?.username as string) ?? null,
+        });
       } else {
+        posthog?.reset();
         router.replace("/(auth)/login");
       }
     });
@@ -100,7 +111,7 @@ export default function RootLayout() {
     );
   }
 
-  return (
+  const content = (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style="dark" />
@@ -110,5 +121,13 @@ export default function RootLayout() {
         </Stack>
       </QueryClientProvider>
     </SafeAreaProvider>
+  );
+
+  if (!posthog) return content;
+
+  return (
+    <PostHogProvider client={posthog} autocapture={{ captureScreens: true }}>
+      {content}
+    </PostHogProvider>
   );
 }

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Crown, User, UserPlus, UserMinus } from "lucide-react-native";
 import { invitesApi } from "@/lib/api/invites";
+import { posthog } from "@/lib/analytics/posthog";
 import { useAuthStore } from "@/lib/store/auth-store";
 import type { LocationMember } from "@/types";
 import { Screen } from "@/components/ui/screen";
@@ -69,6 +70,7 @@ export default function MembersScreen() {
       queryClient.invalidateQueries({ queryKey: ["members", locationId] });
       setInviteUsername("");
       setInviteError(null);
+      posthog?.capture("invite_sent", { locationId });
       Alert.alert(
         "Invite sent",
         "They will see the invite in their Profile tab under 'Location invites'.",

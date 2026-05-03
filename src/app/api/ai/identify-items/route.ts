@@ -6,6 +6,7 @@ import { handleRouteError, UnauthorizedError } from "@/lib/errors";
 import { aiConfig } from "@/lib/ai/config";
 import { prisma } from "@/lib/db/prisma";
 import { assertCabinetAccess } from "@/lib/db/access";
+import { captureEvent } from "@/lib/analytics/posthog";
 
 const ITEM_TYPE_VALUES = [
   "FOOD",
@@ -244,12 +245,19 @@ Return ONLY the raw JSON array — no markdown, no explanation.`,
       };
     });
 
+    const duplicateCount = result.filter((r) => r.isDuplicate).length;
+
     console.log(
       "[identify-items] Done — items:",
       result.length,
       "duplicates:",
-      result.filter((r) => r.isDuplicate).length,
+      duplicateCount,
     );
+
+    captureEvent(userId, "ai_items_identified", {
+      detectedCount: result.length,
+      duplicateCount,
+    });
 
     return NextResponse.json({ data: result });
   } catch (error) {

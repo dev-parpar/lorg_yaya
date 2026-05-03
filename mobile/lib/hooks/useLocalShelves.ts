@@ -4,6 +4,7 @@ import { getDatabase } from "@/lib/local-db/database";
 import { getShelves } from "@/lib/local-db/queries/shelves";
 import { writeOp } from "@/lib/local-db/operations";
 import { useSQLiteQuery } from "./useSQLiteQuery";
+import { posthog } from "@/lib/analytics/posthog";
 import type { ShelfWithCounts } from "@/types";
 import type { AddShelfPayload, UpdateShelfPayload, DeleteShelfPayload } from "@/lib/local-db/types";
 
@@ -31,6 +32,7 @@ export function useLocalShelves(cabinetId: string, locationId: string) {
         signedImageUrl: null,
       };
       await writeOp("add_shelf", payload, locationId);
+      posthog?.capture("shelf_created", { locationId });
     },
     [cabinetId, locationId, shelves],
   );

@@ -5,6 +5,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Home, Building2, Users, Plus, Pencil } from "lucide-react-native";
 import { locationsApi } from "@/lib/api/locations";
+import { posthog } from "@/lib/analytics/posthog";
 import { COLORS } from "@/lib/theme/tokens";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { useImageUpload } from "@/lib/hooks/useImageUpload";
@@ -230,11 +231,12 @@ export default function LocationsScreen() {
 
   const createMutation = useMutation({
     mutationFn: locationsApi.create,
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["locations"] });
       setShowCreateForm(false);
       setCreateForm({ name: "", type: "HOME", address: "" });
       setCreateError(null);
+      posthog?.capture("location_created", { type: variables.type });
     },
     onError: (e: Error) => setCreateError(e.message),
   });
