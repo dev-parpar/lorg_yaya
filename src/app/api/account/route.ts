@@ -27,14 +27,20 @@ export async function DELETE() {
     const userId = await getAuthenticatedUserId();
     if (!userId) throw new UnauthorizedError();
 
-    // ── 1. Mark profile as DELETED ───────────────────────────────────────────
+    // ── 1. Revoke voice assistant account links ────────────────────────────
+    await prisma.voiceAccountLink.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+
+    // ── 2. Mark profile as DELETED ───────────────────────────────────────────
     // Idempotent — safe to call multiple times.
     await prisma.profile.updateMany({
       where: { userId },
       data: { status: ProfileStatus.DELETED, deletedAt: new Date() },
     });
 
-    // ── 2. Hard-delete the Supabase auth user ────────────────────────────────
+    // ── 3. Hard-delete the Supabase auth user ────────────────────────────────
     // Frees the email address immediately so the same email can be used to
     // register a new account. Also invalidates all active sessions and tokens
     // for this userId — no separate session revocation step needed.

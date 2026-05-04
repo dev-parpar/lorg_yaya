@@ -192,3 +192,23 @@ model LocationKeyShare {
   @@index([recipientId, claimedAt])
   @@map("location_key_shares")
 }
+
+/// OAuth 2.0 account links for voice assistant platforms (Google Home, Alexa).
+/// Each row tracks one linked account with opaque access/refresh tokens.
+model VoiceAccountLink {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String    @map("user_id")
+  platform          String    @map("platform") @db.VarChar(20)
+  accessToken       String    @unique @map("access_token") @db.VarChar(255)
+  refreshToken      String    @unique @map("refresh_token") @db.VarChar(255)
+  authCode          String?   @unique @map("auth_code") @db.VarChar(255)
+  authCodeExpiresAt DateTime? @map("auth_code_expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([accessToken])
+  @@index([platform])
+  @@map("voice_account_links")
+}

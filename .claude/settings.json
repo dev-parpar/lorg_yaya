@@ -10,7 +10,14 @@
       "Bash(git stash:*)",
       "Bash(adb shell:*)",
       "Bash(emulator -list-avds)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(ls /Users/visheshchanana/Desktop/Projects/lorgyaya/lorg_yaya/src/app/api/items/[itemId]/)",
+      "Bash(npx -y npm ls zod)",
+      "Bash(node -e \"const z = require\\('zod'\\); const s = z.discriminatedUnion\\('grant_type', [z.object\\({grant_type: z.literal\\('authorization_code'\\), code: z.string\\(\\)}\\), z.object\\({grant_type: z.literal\\('refresh_token'\\), refresh_token: z.string\\(\\)}\\)]\\); console.log\\('OK:', s.parse\\({grant_type: 'authorization_code', code: 'test'}\\)\\)\")",
+      "Bash(node -e \"const z = require\\('zod'\\); const s = z.literal\\('code', { message: 'must be code'}\\); console.log\\('OK:', s.parse\\('code'\\)\\)\")",
+      "Bash(node -e \"const z = require\\('zod'\\); const s = z.record\\(z.unknown\\(\\)\\); console.log\\('OK:', s.parse\\({a: 1}\\)\\)\")",
+      "Bash(node -e \"const z = require\\('zod'\\); const s = z.record\\(z.string\\(\\), z.unknown\\(\\)\\); console.log\\('OK:', s.parse\\({a: 1}\\)\\)\")",
+      "Bash(echo \"Exit code: $?\")"
     ]
   }
 }
