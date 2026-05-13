@@ -17,7 +17,10 @@
       "Bash(node -e \"const z = require\\('zod'\\); const s = z.literal\\('code', { message: 'must be code'}\\); console.log\\('OK:', s.parse\\('code'\\)\\)\")",
       "Bash(node -e \"const z = require\\('zod'\\); const s = z.record\\(z.unknown\\(\\)\\); console.log\\('OK:', s.parse\\({a: 1}\\)\\)\")",
       "Bash(node -e \"const z = require\\('zod'\\); const s = z.record\\(z.string\\(\\), z.unknown\\(\\)\\); console.log\\('OK:', s.parse\\({a: 1}\\)\\)\")",
-      "Bash(echo \"Exit code: $?\")"
+      "Bash(echo \"Exit code: $?\")",
+      "WebSearch",
+      "WebFetch(domain:developer.amazon.com)",
+      "Bash(echo \"Exit: $?\")"
     ]
   }
 }

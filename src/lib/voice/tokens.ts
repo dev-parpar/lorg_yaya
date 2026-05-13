@@ -4,13 +4,24 @@ import { logger } from "@/lib/logger";
 
 const AUTH_CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
-function getGoogleCredentials() {
-  const clientId = process.env.GOOGLE_ACTIONS_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_ACTIONS_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("GOOGLE_ACTIONS_CLIENT_ID and GOOGLE_ACTIONS_CLIENT_SECRET must be set");
+/**
+ * Validates client credentials against any configured voice platform.
+ * Returns true if the given clientId + clientSecret match either the
+ * Google Actions or Alexa credentials in the environment.
+ */
+function validateClientCredentials(clientId: string, clientSecret: string): boolean {
+  const googleId = process.env.GOOGLE_ACTIONS_CLIENT_ID;
+  const googleSecret = process.env.GOOGLE_ACTIONS_CLIENT_SECRET;
+  const alexaId = process.env.ALEXA_CLIENT_ID;
+  const alexaSecret = process.env.ALEXA_CLIENT_SECRET;
+
+  if (googleId && googleSecret && clientId === googleId && clientSecret === googleSecret) {
+    return true;
   }
-  return { clientId, clientSecret };
+  if (alexaId && alexaSecret && clientId === alexaId && clientSecret === alexaSecret) {
+    return true;
+  }
+  return false;
 }
 
 function generateToken(): string {
@@ -57,8 +68,7 @@ export async function exchangeAuthCode(
   clientId: string,
   clientSecret: string,
 ): Promise<{ accessToken: string; refreshToken: string } | null> {
-  const creds = getGoogleCredentials();
-  if (clientId !== creds.clientId || clientSecret !== creds.clientSecret) {
+  if (!validateClientCredentials(clientId, clientSecret)) {
     logger.warn("[voice/tokens] Invalid client credentials on code exchange");
     return null;
   }
@@ -98,8 +108,7 @@ export async function refreshAccessToken(
   clientId: string,
   clientSecret: string,
 ): Promise<{ accessToken: string } | null> {
-  const creds = getGoogleCredentials();
-  if (clientId !== creds.clientId || clientSecret !== creds.clientSecret) {
+  if (!validateClientCredentials(clientId, clientSecret)) {
     logger.warn("[voice/tokens] Invalid client credentials on refresh");
     return null;
   }
